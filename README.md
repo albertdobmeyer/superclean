@@ -44,22 +44,24 @@ The universal tiers run everywhere. On Windows, the heavy and destructive tiers 
 
 ## Install
 
-Zero-install with [uv](https://docs.astral.sh/uv/):
+Zero-install with [uv](https://docs.astral.sh/uv/), straight from the repo:
 
 ```bash
-uvx superclean              # run the safe report
-uvx superclean sweep        # reclaim live resources
+uvx --from git+https://github.com/albertdobmeyer/superclean superclean
+uvx --from git+https://github.com/albertdobmeyer/superclean superclean sweep
 ```
 
-Or install it:
+Or clone and install:
 
 ```bash
-pipx install superclean
-# or
-pip install superclean
+git clone https://github.com/albertdobmeyer/superclean.git
+pipx install ./superclean      # or: pip install ./superclean
 ```
 
 Requires Python 3.9 or newer. The only dependency is `psutil`.
+
+Once published to PyPI, `uvx superclean` and `pip install superclean` will work
+by bare name.
 
 ## Recommended workflow
 
