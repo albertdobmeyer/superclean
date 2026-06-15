@@ -1,0 +1,17 @@
+# Runtime artifacts
+*.log
+*.lock
+_report.txt
+
+# Local-only overrides of the shipped example configs (uncomment if you keep
+# personal entries in these and do not want to commit them):
+# protect.conf
+# targets.conf
+# services.conf
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+.vs/
+.idea/
+.vscode/
