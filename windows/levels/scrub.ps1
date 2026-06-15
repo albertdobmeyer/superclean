@@ -1,15 +1,15 @@
-# levels/clean.ps1 - Standard maintenance: cache purges, idle Ollama unload, weekly-cleanup logic
+# levels/scrub.ps1 - Standard maintenance: cache purges, idle Ollama unload, weekly-cleanup logic
 
-function Invoke-LevelClean {
+function Invoke-LevelScrub {
     param(
         [hashtable]$ProtectedPids,
         [switch]$DryRun,
         [switch]$Yes
     )
 
-    Invoke-LevelBrush -ProtectedPids $ProtectedPids -DryRun:$DryRun -Yes:$Yes
+    Invoke-LevelSweep -ProtectedPids $ProtectedPids -DryRun:$DryRun -Yes:$Yes
 
-    Write-Section 'LEVEL: --clean (additive on top of --brush)'
+    Write-Section 'LEVEL: --scrub (additive on top of --sweep)'
 
     # 1. pip cache purge across all discovered Pythons
     Write-Log ''

@@ -1,7 +1,5 @@
 # core/protect.ps1 - protected process detection (the safety perimeter)
 
-$script:ProtectConfPath = Join-Path $PSScriptRoot '..\protect.conf'
-
 # Hardcoded baseline of process names that must never be touched
 $script:HardcodedProtectedNames = @(
     'Cursor',           # Cursor IDE
@@ -39,16 +37,7 @@ function Get-ParentPid {
 }
 
 function Read-ProtectConf {
-    $extra = @()
-    if (Test-Path -LiteralPath $script:ProtectConfPath) {
-        Get-Content -LiteralPath $script:ProtectConfPath -ErrorAction SilentlyContinue | ForEach-Object {
-            $line = $_.Trim()
-            if ($line -and -not $line.StartsWith('#')) {
-                $extra += $line
-            }
-        }
-    }
-    return $extra
+    return @(Read-ConfLines -Path (Get-ConfPath 'protect.conf'))
 }
 
 function Get-AllProtectedProcessNames {

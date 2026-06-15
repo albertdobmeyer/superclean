@@ -1,7 +1,7 @@
-# levels/brush.ps1 - Light maintenance, no IDE interruption
+# levels/sweep.ps1 - Light maintenance, no IDE interruption
 # Adds: smart orphan kill, standby flush, working-set trim, DNS/ARP, Cursor/Claude renewable caches
 
-function Invoke-LevelBrush {
+function Invoke-LevelSweep {
     param(
         [hashtable]$ProtectedPids,
         [switch]$DryRun,
@@ -11,7 +11,7 @@ function Invoke-LevelBrush {
     # Run dust first (additive levels)
     Invoke-LevelDust -DryRun:$DryRun
 
-    Write-Section 'LEVEL: --brush (additive on top of --dust)'
+    Write-Section 'LEVEL: --sweep (additive on top of --dust)'
 
     # 1. Standby list flush (with GPU/IO guard)
     Write-Log ''

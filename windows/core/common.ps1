@@ -5,9 +5,6 @@ $script:NoColor = $false
 $script:Quiet = $false
 $script:DryRun = $false
 
-# Repo root (the folder containing superclean.ps1). core/ -> parent.
-$script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-
 # Per-user data directory for logs + lockfile. Override-friendly, never on a
 # drive that only exists on one machine.
 function Get-SupercleanDataDir {
@@ -19,10 +16,31 @@ function Get-SupercleanDataDir {
     return $dir
 }
 
-# Resolve an optional config file that lives next to superclean.ps1.
+# Locate the directory holding the shared *.conf files. Precedence:
+#   1. SUPERCLEAN_CONF_DIR (set by the cross-platform launcher)
+#   2. the repo root in dev (one level above windows/, where the confs live)
+#   3. the per-user data dir
+# Returns the first candidate that exists; falls back to the per-user dir.
+function Get-SupercleanConfDir {
+    if ($env:SUPERCLEAN_CONF_DIR -and (Test-Path -LiteralPath $env:SUPERCLEAN_CONF_DIR)) {
+        return $env:SUPERCLEAN_CONF_DIR
+    }
+    $candidates = @(
+        (Join-Path $PSScriptRoot '..\..'),   # repo root (windows/core -> repo)
+        (Join-Path $PSScriptRoot '..')        # windows/ (if confs were co-located)
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath (Join-Path $c 'protect.conf')) {
+            return (Resolve-Path -LiteralPath $c).Path
+        }
+    }
+    return (Get-SupercleanDataDir)
+}
+
+# Resolve an optional config file by name.
 function Get-ConfPath {
     param([Parameter(Mandatory)][string]$Name)
-    return (Join-Path $script:RepoRoot $Name)
+    return (Join-Path (Get-SupercleanConfDir) $Name)
 }
 
 # Read non-empty, non-comment lines from a config file. Returns @() if missing.

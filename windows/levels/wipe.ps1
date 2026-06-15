@@ -44,9 +44,9 @@ function Invoke-LevelWipe {
         [switch]$Yes
     )
 
-    Invoke-LevelClean -ProtectedPids $ProtectedPids -DryRun:$DryRun -Yes:$Yes
+    Invoke-LevelScrub -ProtectedPids $ProtectedPids -DryRun:$DryRun -Yes:$Yes
 
-    Write-Section 'LEVEL: --wipe (additive on top of --clean)'
+    Write-Section 'LEVEL: --wipe (additive on top of --scrub)'
 
     if (-not $Yes) {
         Write-Log ''

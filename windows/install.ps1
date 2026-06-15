@@ -1,8 +1,10 @@
-# install.ps1 - put `superclean` on your PATH.
+# install.ps1 - put the Windows PowerShell backend on your PATH (standalone use).
+#
+# Most users install the cross-platform CLI instead (uvx superclean / pipx).
+# This shim is for running the PowerShell deep-clean backend directly.
 #
 # Creates a small shim (superclean.cmd) in a directory that is already on the
-# user PATH, so you can run `superclean ...` from anywhere. Re-run any time to
-# repoint the shim at this copy. Uninstall with: install.ps1 -Uninstall
+# user PATH. Re-run any time to repoint it. Uninstall with: install.ps1 -Uninstall
 
 [CmdletBinding()]
 param(

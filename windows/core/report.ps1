@@ -226,10 +226,10 @@ function Invoke-Report {
     Write-Log ''
     Write-Log '== ESTIMATED RECLAIM PER LEVEL ==' 'HEAD'
     Write-Log '  --dust   : Recycle Bin (>7d) + tiny caches    < 2 GB'
-    Write-Log '  --brush  : + standby flush + working-set trim + orphans + Cursor/Claude sub-caches'
+    Write-Log '  --sweep  : + standby flush + working-set trim + orphans + Cursor/Claude sub-caches'
     $standbyDisp = if ($standby -ge 0) { $standby } else { '?' }
     Write-Log ("           : standby ~{0} MB, orphans {1}" -f $standbyDisp, $orphans.Count)
-    Write-Log '  --clean  : + pip/npm purge + idle Ollama unload + logs + targets.conf folders'
+    Write-Log '  --scrub  : + pip/npm purge + idle Ollama unload + logs + targets.conf folders'
     Write-Log '  --wipe   : + browser caches + Playwright + full Temp'
     if ($docker.TotalBytes -gt 0 -or $woSize -gt 0) {
         Write-Log ("  --nuke   : + Docker {0} + Windows.old {1}" -f (Get-FriendlySize $docker.TotalBytes), (Get-FriendlySize $woSize)) 'WARN'

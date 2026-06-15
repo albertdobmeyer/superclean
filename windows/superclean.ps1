@@ -5,11 +5,14 @@
 # Usage:
 #   superclean --help
 #   superclean --report
-#   superclean --dust | --brush | --clean | --wipe | --nuke
+#   superclean --dust | --sweep | --scrub | --wipe | --nuke
 #   superclean --ram | --gpu-reset | --last | --list-protected
 #
 # Modifiers:
-#   --dry-run --yes -y --i-know --quiet -q --log <path> --no-color --force-unlock
+#   --dry-run --yes -y --i-know --quiet -q --log <path> --no-color --force-unlock --no-lock
+#
+# Note: this is the Windows deep-clean backend. The cross-platform `superclean`
+# command (Python) invokes it; it also runs standalone.
 
 [CmdletBinding()]
 param(
@@ -29,8 +32,8 @@ $script:Root = $PSScriptRoot
 . (Join-Path $script:Root 'core\report.ps1')
 . (Join-Path $script:Root 'core\ram-mode.ps1')
 . (Join-Path $script:Root 'levels\dust.ps1')
-. (Join-Path $script:Root 'levels\brush.ps1')
-. (Join-Path $script:Root 'levels\clean.ps1')
+. (Join-Path $script:Root 'levels\sweep.ps1')
+. (Join-Path $script:Root 'levels\scrub.ps1')
 . (Join-Path $script:Root 'levels\wipe.ps1')
 . (Join-Path $script:Root 'levels\nuke.ps1')
 
@@ -48,8 +51,8 @@ USAGE:
 LEVELS (additive -- higher includes everything below):
   --report, -r        Read-only diagnostic. No changes.
   --dust              Gentle: Recycle Bin >7d, tiny sub-caches
-  --brush             + smart-orphan kill, standby flush, working-set trim, Cursor/Claude renewable caches
-  --clean             + pip/npm/uv purge, idle Ollama unload, log prune, $TEMP >7d
+  --sweep             + smart-orphan kill, standby flush, working-set trim, Cursor/Claude renewable caches
+  --scrub             + pip/npm/uv purge, idle Ollama unload, log prune, $TEMP >7d
   --wipe              + browser caches (skip if running), Playwright bins, full Temp wipe
   --nuke              + Docker WSL reset, Windows.old removal  [requires typing NUKE]
 
@@ -68,6 +71,7 @@ MODIFIERS (combine with any level/mode):
   --log <path>        Override log file path
   --no-color          Disable ANSI color
   --force-unlock      Override stuck lockfile
+  --no-lock           Do not acquire/release the lockfile (caller owns it)
 
 NEVER KILLED: Cursor, VS Code, Antigravity, Claude Desktop, Claude Code (this session),
 opencode, Windows Terminal, ollama daemon, plus their descendants.
@@ -78,8 +82,8 @@ LOG: %LOCALAPPDATA%\superclean\superclean-YYYY-MM-DD.log
 Examples:
   superclean --report
   superclean --ram
-  superclean --brush
-  superclean --clean --dry-run
+  superclean --sweep
+  superclean --scrub --dry-run
   superclean --wipe --yes
   superclean --nuke
 '@
@@ -99,6 +103,7 @@ $iKnow = $false
 $quiet = $false
 $noColor = $false
 $forceUnlock = $false
+$noLock = $false
 $customLog = $null
 
 $i = 0
@@ -112,8 +117,8 @@ while ($i -lt $RawArgs.Count) {
         '^--last$'                { $wantLast = $true }
         '^--list-protected$'      { $wantListProtected = $true }
         '^--dust$'                { $level = 'dust' }
-        '^--brush$'               { $level = 'brush' }
-        '^--clean$'               { $level = 'clean' }
+        '^--sweep$'               { $level = 'sweep' }
+        '^--scrub$'               { $level = 'scrub' }
         '^--wipe$'                { $level = 'wipe' }
         '^--nuke$'                { $level = 'nuke' }
         '^--dry-run$'             { $dryRun = $true }
@@ -122,6 +127,7 @@ while ($i -lt $RawArgs.Count) {
         '^(--quiet|-q)$'          { $quiet = $true }
         '^--no-color$'            { $noColor = $true }
         '^--force-unlock$'        { $forceUnlock = $true }
+        '^--no-lock$'             { $noLock = $true }
         '^--log$'                 {
             $i++
             if ($i -lt $RawArgs.Count) { $customLog = $RawArgs[$i] }
@@ -144,7 +150,7 @@ if ($modeCount -eq 0) {
     exit 1
 }
 if ($modeCount -gt 1) {
-    Write-Host "ERROR: Pick exactly one of: --help, --report, --dust, --brush, --clean, --wipe, --nuke, --ram, --gpu-reset, --last, --list-protected" -ForegroundColor Red
+    Write-Host "ERROR: Pick exactly one of: --help, --report, --dust, --sweep, --scrub, --wipe, --nuke, --ram, --gpu-reset, --last, --list-protected" -ForegroundColor Red
     exit 1
 }
 
@@ -161,11 +167,13 @@ Initialize-Common -LogPath $logPath -NoColor:$noColor -Quiet:$quiet -DryRun:$dry
 if ($wantLast) { Invoke-Last; exit 0 }
 if ($wantListProtected) { Invoke-ListProtected; exit 0 }
 
-# --- Acquire lockfile ---
-$gotLock = Acquire-Lockfile -Force:$forceUnlock
-if (-not $gotLock) {
-    Write-Host "ERROR: Another superclean run is in progress. Use --force-unlock to override." -ForegroundColor Red
-    exit 1
+# --- Acquire lockfile (unless caller owns it via --no-lock) ---
+if (-not $noLock) {
+    $gotLock = Acquire-Lockfile -Force:$forceUnlock
+    if (-not $gotLock) {
+        Write-Host "ERROR: Another superclean run is in progress. Use --force-unlock to override." -ForegroundColor Red
+        exit 1
+    }
 }
 
 try {
@@ -198,8 +206,8 @@ try {
     } elseif ($level) {
         switch ($level) {
             'dust'  { Invoke-LevelDust -DryRun:$dryRun }
-            'brush' { Invoke-LevelBrush -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes }
-            'clean' { Invoke-LevelClean -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes }
+            'sweep' { Invoke-LevelSweep -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes }
+            'scrub' { Invoke-LevelScrub -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes }
             'wipe'  { Invoke-LevelWipe  -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes | Out-Null }
             'nuke'  { Invoke-LevelNuke  -ProtectedPids $protectedPids -DryRun:$dryRun -Yes:$yes -IKnow:$iKnow | Out-Null }
         }
@@ -225,5 +233,5 @@ catch {
     exit 3
 }
 finally {
-    Release-Lockfile
+    if (-not $noLock) { Release-Lockfile }
 }

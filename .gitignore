@@ -2,6 +2,25 @@
 *.log
 *.lock
 _report.txt
+_sweeptest.txt
+_scrubtest.txt
+_report_smoke.json
+_*.txt
+_*.json
+
+# Python build / env artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+.venv-*/
+.testenv/
+.pytest_cache/
+.ruff_cache/
+uv.lock
 
 # Local-only overrides of the shipped example configs (uncomment if you keep
 # personal entries in these and do not want to commit them):
