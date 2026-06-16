@@ -61,29 +61,43 @@ superclean **never** kills your live tools. A generous baseline of editors, term
 | **Windows** | yes | yes | yes | yes | yes |
 | **macOS / Linux** | yes | yes | yes | report-only (v1) | report-only (v1) |
 
-The universal tiers run everywhere. On Windows, the heavy and destructive tiers are handled by a proven PowerShell deep-clean backend that ships with the package. On macOS and Linux, native destructive deep-cleaning is report-only in v1 (see Roadmap).
+The everyday tiers do real work everywhere: on macOS and Linux, `dust`, `sweep`, and `scrub` genuinely kill orphaned dev processes, purge package caches, unload idle models, and age out temp files. Only the heaviest, most destructive actions differ by OS: on Windows they are handled by a proven PowerShell deep-clean backend that ships with the package; on macOS and Linux that native destructive deep-cleaning (browser/page cache, docker prune) is report-only in v1 (see Roadmap).
 
 ## Install
 
-Zero-install with [uv](https://docs.astral.sh/uv/):
+The exact same commands work on **Windows, macOS, and Linux** (Python 3.9+).
+
+The easiest path is [uv](https://docs.astral.sh/uv/) (zero-install, always latest).
+If you do not already have `uv`:
 
 ```bash
-uvx superclean-cli              # run the safe report
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then, on any OS:
+
+```bash
+uvx superclean-cli              # safe read-only report, changes nothing
 uvx superclean-cli sweep        # reclaim live resources
 ```
 
-Or install it (the command is `superclean`):
+Prefer a permanent install (gives you the short `superclean` command)?
 
 ```bash
-pipx install superclean-cli
-# or
-pip install superclean-cli
+pipx install superclean-cli     # macOS: brew install pipx | Debian/Ubuntu: sudo apt install pipx
+# or, simplest:
+pip install --user superclean-cli
 ```
 
-Requires Python 3.9 or newer. The only dependency is `psutil`.
-
-The package is `superclean-cli` on PyPI (the name `superclean` was taken); the
-installed command is `superclean`.
+The only dependency is `psutil` (prebuilt wheels for Windows, macOS, and Linux,
+so there is nothing to compile). The package is `superclean-cli` on PyPI (the
+name `superclean` was taken); the installed command is `superclean`.
 
 ## Recommended workflow
 
