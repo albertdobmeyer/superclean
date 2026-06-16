@@ -2,9 +2,26 @@
 
 **An agentic-dev garbage collector.** One command, a tiered cleanup ladder, that reclaims the RAM, VRAM, and disk left behind by heavy parallel development, and never touches the editors, terminals, or AI tools you have open.
 
+[![PyPI](https://img.shields.io/pypi/v/superclean-cli)](https://pypi.org/project/superclean-cli/)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 ![python](https://img.shields.io/badge/python-3.9%2B-3776AB)
 ![license](https://img.shields.io/badge/license-MIT-green)
+
+## Quick start
+
+```bash
+uvx superclean-cli            # safe read-only report, changes nothing
+uvx superclean-cli sweep      # reclaim RAM/VRAM, kill orphaned dev servers
+```
+
+Or install it once (the command becomes `superclean`):
+
+```bash
+pipx install superclean-cli   # or: pip install superclean-cli
+```
+
+Windows, macOS, and Linux. Python 3.9+, one dependency (`psutil`). Start with the
+no-arg report, preview any tier with `--dry-run`, then run it. [Full install and options below.](#install)
 
 ## Why this exists
 
