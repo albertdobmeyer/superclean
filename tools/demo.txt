@@ -1,0 +1,24 @@
+@p uvx superclean-cli
+@h SUPERCLEAN -- REPORT
+  platform: Windows-10-10.0.26200-SP0
+
+@h == PROTECTED PROCESSES (will not be killed) ==
+  cursor                 62 running
+  claude                 20 running
+  windowsterminal         2 running
+  Total protected PIDs (incl descendants): 302
+
+@h == MEMORY ==
+  RAM: 37.50 GB used of 63.91 GB (58.7%), 26.41 GB free
+
+@h == ORPHAN DEV PROCESSES ==
+@warn   Found 1 orphan(s):
+    PID 874840  python.exe   C:\Python310\python.exe -m truly_plated.app
+
+@h == SERVICE HEALTH ==
+@dim   Ollama (11434)         Not running
+
+@p uvx superclean-cli sweep
+@ok   Working sets trimmed on 9 process(es). Reclaimed ~1.45 GB.
+@ok   Killed orphan PID 874840  (python -m truly_plated.app)
+@dim   Caches cleared, DNS flushed. 302 protected processes: untouched.

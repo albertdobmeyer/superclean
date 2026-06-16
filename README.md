@@ -7,6 +7,10 @@
 ![python](https://img.shields.io/badge/python-3.9%2B-3776AB)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
+<p align="center">
+  <img src="assets/demo.svg" alt="superclean report then sweep: it finds an orphaned dev server and reclaims 1.45 GB of RAM, leaving 302 protected processes untouched" width="680">
+</p>
+
 ## Quick start
 
 ```bash

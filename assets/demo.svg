@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="578" viewBox="0 0 640 578" font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace" font-size="14">
+<rect width="640" height="578" rx="10" fill="#0d1117"/>
+<rect width="640" height="38" rx="10" fill="#161b22"/>
+<rect y="28" width="640" height="10" fill="#161b22"/>
+<circle cx="20" cy="19.0" r="6" fill="#ff5f56"/>
+<circle cx="40" cy="19.0" r="6" fill="#ffbd2e"/>
+<circle cx="60" cy="19.0" r="6" fill="#27c93f"/>
+<text x="320.0" y="23.0" text-anchor="middle" fill="#8b949e">superclean</text>
+<text x="18" y="70" fill="#3fb950">$</text>
+<text x="34.8" y="70" fill="#e6edf3">uvx superclean-cli</text>
+<text x="18" y="91" fill="#56d4dd" xml:space="preserve">SUPERCLEAN -- REPORT</text>
+<text x="18" y="112" fill="#c9d1d9" xml:space="preserve">  platform: Windows-10-10.0.26200-SP0</text>
+<text x="18" y="154" fill="#56d4dd" xml:space="preserve">== PROTECTED PROCESSES (will not be killed) ==</text>
+<text x="18" y="175" fill="#c9d1d9" xml:space="preserve">  cursor                 62 running</text>
+<text x="18" y="196" fill="#c9d1d9" xml:space="preserve">  claude                 20 running</text>
+<text x="18" y="217" fill="#c9d1d9" xml:space="preserve">  windowsterminal         2 running</text>
+<text x="18" y="238" fill="#c9d1d9" xml:space="preserve">  Total protected PIDs (incl descendants): 302</text>
+<text x="18" y="280" fill="#56d4dd" xml:space="preserve">== MEMORY ==</text>
+<text x="18" y="301" fill="#c9d1d9" xml:space="preserve">  RAM: 37.50 GB used of 63.91 GB (58.7%), 26.41 GB free</text>
+<text x="18" y="343" fill="#56d4dd" xml:space="preserve">== ORPHAN DEV PROCESSES ==</text>
+<text x="18" y="364" fill="#d29922" xml:space="preserve">  Found 1 orphan(s):</text>
+<text x="18" y="385" fill="#c9d1d9" xml:space="preserve">    PID 874840  python.exe   C:\Python310\python.exe -m truly_plated.app</text>
+<text x="18" y="427" fill="#56d4dd" xml:space="preserve">== SERVICE HEALTH ==</text>
+<text x="18" y="448" fill="#8b949e" xml:space="preserve">  Ollama (11434)         Not running</text>
+<text x="18" y="490" fill="#3fb950">$</text>
+<text x="34.8" y="490" fill="#e6edf3">uvx superclean-cli sweep</text>
+<text x="18" y="511" fill="#3fb950" xml:space="preserve">  Working sets trimmed on 9 process(es). Reclaimed ~1.45 GB.</text>
+<text x="18" y="532" fill="#3fb950" xml:space="preserve">  Killed orphan PID 874840  (python -m truly_plated.app)</text>
+<text x="18" y="553" fill="#8b949e" xml:space="preserve">  Caches cleared, DNS flushed. 302 protected processes: untouched.</text>
+</svg>
