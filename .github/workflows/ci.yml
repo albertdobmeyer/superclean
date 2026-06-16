@@ -14,8 +14,8 @@ jobs:
         python-version: ["3.9", "3.12"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
@@ -34,7 +34,7 @@ jobs:
   no-em-dashes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Reject unicode dashes
         run: |
           if grep -rlP '[\x{2012}-\x{2015}]' --include='*.py' --include='*.ps1' \
