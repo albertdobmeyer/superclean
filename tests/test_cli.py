@@ -100,3 +100,14 @@ def test_json_lock_busy_emits_error_envelope(tmp_path, monkeypatch, capsys):
         assert "in progress" in data["result"]["error"]
     finally:
         cli._release_lock(held)
+
+
+def test_init_json_envelope(tmp_path, monkeypatch, capsys):
+    from superclean import config
+
+    monkeypatch.setattr(config, "_user_config_dir", lambda: tmp_path / "user")
+    code = cli.main(["init", "--json", "--log", str(tmp_path / "t.log")])
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["command"] == "init"
+    assert set(data["result"]["files"]) == {"protect.conf", "targets.conf", "services.conf"}

@@ -19,11 +19,11 @@ import time
 
 import psutil
 
-from superclean import __version__, platform_backend, report as report_mod
+from superclean import __version__, config, platform_backend, report as report_mod
 from superclean.util import RunContext, data_dir
 
 TIERS = ["dust", "sweep", "scrub", "wipe", "nuke"]
-COMMANDS = ["report", "protected", "ram", *TIERS]
+COMMANDS = ["report", "protected", "ram", "init", *TIERS]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -116,6 +116,13 @@ def main(argv: "list[str] | None" = None) -> int:
         return _finish(ctx, cmd, result, 0)
     if cmd == "protected":
         result = report_mod.list_protected(ctx)
+        return _finish(ctx, cmd, result, 0)
+    if cmd == "init":
+        result = config.init_user_conf()
+        ctx.log(f"Config dir: {result['dir']}")
+        for name, status in result["files"].items():
+            level = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}[status]
+            ctx.log(f"  {name:<15} {status}", level)
         return _finish(ctx, cmd, result, 0)
 
     # Mutating commands (ram + tiers): acquire the single lock.
