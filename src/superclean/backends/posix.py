@@ -9,8 +9,25 @@ report-only for now and noted as such.
 from __future__ import annotations
 
 from superclean import caches, ollama, orphans, perimeter, procs as procs_mod, tempprune
+from superclean.util import friendly_size
 
 _RANK = {"dust": 1, "sweep": 2, "scrub": 3, "wipe": 4, "nuke": 5}
+
+
+def _totals(results: dict) -> dict:
+    """Aggregate measured reclaim across all steps of a run."""
+    ram = 0
+    ram += (results.get("orphans") or {}).get("reclaimed_rss", 0)
+    ram += (results.get("ollama") or {}).get("reclaimed_bytes", 0)
+    disk = 0
+    for key in ("temp_light", "temp_deep"):
+        disk += (results.get(key) or {}).get("bytes", 0)
+    for t in results.get("targets") or []:
+        disk += t.get("bytes", 0)
+    for v in (results.get("caches") or {}).values():
+        if isinstance(v, dict):
+            disk += v.get("freed_bytes") or 0
+    return {"ram_bytes": ram, "disk_bytes": disk}
 
 
 def _ram_relief(ctx) -> dict:
@@ -30,7 +47,17 @@ def _ram_relief(ctx) -> dict:
 
 def run_ram(ctx) -> dict:
     ctx.section("SUPERCLEAN -- RAM RELIEF")
-    return _ram_relief(ctx)
+    results = _ram_relief(ctx)
+    totals = _totals(results)
+    results["reclaimed"] = totals
+    verb = "Would reclaim (estimate)" if ctx.dry_run else "Reclaimed"
+    ctx.log("")
+    ctx.log(
+        f"  {verb}: {friendly_size(totals['ram_bytes'])} memory, "
+        f"{friendly_size(totals['disk_bytes'])} disk.",
+        "OK",
+    )
+    return results
 
 
 def run_tier(ctx, tier: str) -> dict:
@@ -70,5 +97,15 @@ def run_tier(ctx, tier: str) -> dict:
             "report-only on this OS in this version. Nothing destructive run.",
             "SKIP",
         )
+
+    totals = _totals(results)
+    results["reclaimed"] = totals
+    verb = "Would reclaim (estimate)" if ctx.dry_run else "Reclaimed"
+    ctx.log("")
+    ctx.log(
+        f"  {verb}: {friendly_size(totals['ram_bytes'])} memory, "
+        f"{friendly_size(totals['disk_bytes'])} disk.",
+        "OK",
+    )
 
     return results

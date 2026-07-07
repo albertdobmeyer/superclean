@@ -110,7 +110,7 @@ def kill_orphans(orphans: list[dict], ctx) -> dict:
     """Kill confirmed orphans with kill-time re-validation. Honors dry-run."""
     if not orphans:
         ctx.log("  No orphan dev processes found.", "OK")
-        return {"killed": 0, "failed": 0, "skipped": 0}
+        return {"killed": 0, "failed": 0, "skipped": 0, "reclaimed_rss": 0}
 
     ctx.log(f"  Found {len(orphans)} orphan dev process(es):", "INFO")
     for o in orphans:
@@ -118,9 +118,11 @@ def kill_orphans(orphans: list[dict], ctx) -> dict:
         ctx.log(f"    {tag}PID {o['pid']:<7} {_norm(o['name']):<12} {o['cmdline']}", "INFO")
 
     if ctx.dry_run:
-        return {"killed": 0, "failed": 0, "skipped": 0}
+        reclaimed = sum(o.get("rss") or 0 for o in orphans)
+        return {"killed": 0, "failed": 0, "skipped": 0, "reclaimed_rss": reclaimed}
 
     killed = failed = skipped = 0
+    reclaimed = 0
     for o in orphans:
         pid = o["pid"]
         if pid == os.getpid():
@@ -139,6 +141,7 @@ def kill_orphans(orphans: list[dict], ctx) -> dict:
             except psutil.TimeoutExpired:
                 proc.kill()
             killed += 1
+            reclaimed += o.get("rss") or 0
             ctx.log(f"    Killed PID {pid}", "OK")
         except psutil.NoSuchProcess:
             ctx.log(f"    PID {pid} already gone, skipping.", "SKIP")
@@ -150,4 +153,4 @@ def kill_orphans(orphans: list[dict], ctx) -> dict:
             ctx.log(f"    Failed to kill PID {pid}: {exc}", "ERROR")
             failed += 1
 
-    return {"killed": killed, "failed": failed, "skipped": skipped}
+    return {"killed": killed, "failed": failed, "skipped": skipped, "reclaimed_rss": reclaimed}
