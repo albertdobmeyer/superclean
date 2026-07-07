@@ -65,8 +65,11 @@ def run_tier(ctx, tier: str) -> dict:
     ctx.section(f"SUPERCLEAN -- {tier.upper()}")
     results: dict = {}
 
-    # dust (rank 1): lightest, always-safe.
-    results["temp_light"] = tempprune.prune_temp(ctx, days=14)
+    # dust (rank 1): lightest, always-safe. At scrub and above the 7-day pass
+    # strictly subsumes this 14-day pass, so only one temp walk runs -- which
+    # also keeps dry-run reclaim estimates from double-counting old files.
+    if rank < 3:
+        results["temp_light"] = tempprune.prune_temp(ctx, days=14)
 
     # sweep (rank 2): reclaim live resources.
     if rank >= 2:

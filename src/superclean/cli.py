@@ -122,7 +122,7 @@ def main(argv: "list[str] | None" = None) -> int:
     lock = _acquire_lock(ctx)
     if lock is None:
         ctx.log("ERROR: another superclean run is in progress. Use --force-unlock.", "ERROR")
-        return 1
+        return _finish(ctx, cmd, {"error": "another superclean run is in progress (use --force-unlock)"}, 1)
     start = time.time()
     try:
         ctx.log("")

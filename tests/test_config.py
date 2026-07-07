@@ -1,8 +1,6 @@
 """Config discovery: any conf file marks a dir; missing files fall back per-file."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from superclean import config
 
 

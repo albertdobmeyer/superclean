@@ -5,8 +5,10 @@ import subprocess
 from pathlib import Path
 
 from superclean import caches
+from superclean.backends import posix
 from superclean.backends.posix import _totals
 from superclean.orphans import kill_orphans
+from superclean.util import RunContext
 
 
 class _Ctx:
@@ -81,3 +83,25 @@ def test_totals_aggregation():
     totals = _totals(results)
     assert totals["ram_bytes"] == 300
     assert totals["disk_bytes"] == 105
+
+
+def test_scrub_runs_single_temp_pass(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_prune_temp(ctx, days):
+        calls.append(days)
+        return {"files": 0, "bytes": 0, "skipped": 0, "missing": False}
+
+    monkeypatch.setattr(posix.tempprune, "prune_temp", fake_prune_temp)
+    monkeypatch.setattr(posix.tempprune, "prune_targets", lambda ctx: [])
+    monkeypatch.setattr(posix.caches, "purge", lambda ctx: {})
+    monkeypatch.setattr(
+        posix, "_ram_relief",
+        lambda ctx: {"orphans": {"reclaimed_rss": 0}, "ollama": {"reclaimed_bytes": 0}},
+    )
+    ctx = RunContext(dry_run=True, quiet=True, log_path=tmp_path / "t.log")
+    posix.run_tier(ctx, "scrub")
+    assert calls == [7]  # the 14-day dust pass must not also run
+    calls.clear()
+    posix.run_tier(ctx, "dust")
+    assert calls == [14]

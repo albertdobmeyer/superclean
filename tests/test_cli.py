@@ -87,3 +87,16 @@ def test_acquire_backs_off_when_reclamation_race_lost(tmp_path, monkeypatch):
     assert cli._acquire_lock(_ctx()) is None
     # the surviving lock belongs to the "other" process and must still exist
     assert (tmp_path / "superclean.lock").exists()
+
+
+def test_json_lock_busy_emits_error_envelope(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    held = cli._acquire_lock(_ctx())
+    assert held is not None
+    try:
+        code = cli.main(["sweep", "--dry-run", "--json", "--log", str(tmp_path / "t.log")])
+        assert code == 1
+        data = json.loads(capsys.readouterr().out)  # exactly one valid JSON document
+        assert "in progress" in data["result"]["error"]
+    finally:
+        cli._release_lock(held)
