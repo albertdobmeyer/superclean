@@ -201,7 +201,7 @@ def last_run(ctx) -> dict:
             ctx.section("SUPERCLEAN -- LAST RUN")
             ctx.log(f"  from {path}")
             for ln in block:
-                ctx.log(f"  {ln}")
+                ctx.log(f"  {ln}", to_file=False)
         return {"log": str(path), "lines": block}
     ctx.log("No previous run found in the logs.", "WARN")
     return {"log": None, "lines": []}

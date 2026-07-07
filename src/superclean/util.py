@@ -80,14 +80,20 @@ class RunContext:
             today = datetime.now().strftime("%Y-%m-%d")
             self.log_path = data_dir() / f"superclean-{today}.log"
 
-    def log(self, message: str = "", level: str = "INFO") -> None:
-        """Print to console (unless quiet/json) and always append to the log file."""
+    def log(self, message: str = "", level: str = "INFO", to_file: bool = True) -> None:
+        """Print to console (unless quiet/json) and append to the log file.
+
+        to_file=False prints only: for replaying existing log content, which
+        must never be re-written into the log it came from.
+        """
         if not self.quiet and not self.json:
             # flush so our lines stay ordered relative to subprocess (PS) output.
             if self._color and level in _COLORS:
                 print(f"{_COLORS[level]}{message}{_RESET}", flush=True)
             else:
                 print(message, flush=True)
+        if not to_file:
+            return
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             with open(self.log_path, "a", encoding="utf-8") as fh:

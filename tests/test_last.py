@@ -47,3 +47,28 @@ def test_last_with_no_logs(tmp_path, monkeypatch):
     monkeypatch.setattr(report, "data_dir", lambda: tmp_path)
     result = report.last_run(_ctx(tmp_path))
     assert result == {"log": None, "lines": []}
+
+
+def test_repeat_last_same_day_is_stable(tmp_path, monkeypatch, capsys):
+    # last's own output must not poison the log file it scans: a second
+    # same-day invocation logging into the SAME day file must find the
+    # original run, not its own echo.
+    monkeypatch.setattr(report, "data_dir", lambda: tmp_path)
+    day = tmp_path / "superclean-2026-07-07.log"
+    day.write_text(_BLOCK_NEW)
+    ctx = RunContext(log_path=day)
+    first = report.last_run(ctx)
+    second = report.last_run(ctx)
+    assert second["lines"] == first["lines"]
+    assert any("Command: sweep" in ln for ln in second["lines"])
+
+
+def test_log_to_file_false_prints_but_does_not_append(tmp_path, capsys):
+    ctx = RunContext(log_path=tmp_path / "l.log")
+    ctx.log("console only", to_file=False)
+    ctx.log("both")
+    text = (tmp_path / "l.log").read_text()
+    assert "both" in text
+    assert "console only" not in text
+    out = capsys.readouterr().out
+    assert "console only" in out
