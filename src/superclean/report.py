@@ -219,7 +219,11 @@ def list_protected(ctx) -> dict:
 
 
 def last_run(ctx) -> dict:
-    """The `last` subcommand: replay the newest mutating-run block."""
+    """The `last` subcommand: replay the newest mutating-run block.
+
+    Only day files in the default data dir are scanned; runs recorded via a
+    --log override live outside it and are not visible here.
+    """
     logs = sorted(data_dir().glob("superclean-*.log"), reverse=True)
     for path in logs:
         try:

@@ -116,20 +116,26 @@ _TOOLS = (
 
 
 def sizes() -> dict:
-    """label -> measurable cache bytes for tools on PATH. Read-only preview."""
+    """label -> cache bytes for tools on PATH. Read-only preview.
+
+    A value of None means the cache dir exists but could not be sized within
+    the walk budget (typically: it is huge). Tools whose cache dir cannot be
+    located, or does not exist yet, are omitted entirely.
+    """
     out: dict = {}
     pythons = _discover_pythons()
     if pythons:
-        size = _dir_size(_query_cache_dir([pythons[0], "-m", "pip", "cache", "dir"]))
-        if size is not None:
-            out["pip"] = size
+        cache_dir = _query_cache_dir([pythons[0], "-m", "pip", "cache", "dir"])
+        if cache_dir is not None and cache_dir.exists():
+            out["pip"] = _dir_size(cache_dir)
     for label, exe, dir_args_tail, _clean_args in _TOOLS:
         path = shutil.which(exe)
         if not path:
             continue
-        size = _dir_size(_query_cache_dir([path, *dir_args_tail]))
-        if size is not None:
-            out[label] = size
+        cache_dir = _query_cache_dir([path, *dir_args_tail])
+        if cache_dir is None or not cache_dir.exists():
+            continue
+        out[label] = _dir_size(cache_dir)
     return out
 
 
