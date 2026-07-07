@@ -160,6 +160,12 @@ def run(ctx) -> dict:
     for name, status in data["service_health"].items():
         ctx.log(f"  {name:<22} {status}", "OK" if status == "Running" else "INFO")
     ctx.log("")
+    ctx.log(
+        "Tiers: dust < sweep < scrub < wipe < nuke -- `superclean -h` shows the ladder;",
+        "SKIP",
+    )
+    ctx.log("`superclean clean` walks cleanup with a confirmation per group.", "SKIP")
+    ctx.log("")
     return data
 
 
