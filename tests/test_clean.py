@@ -82,3 +82,17 @@ def test_unmeasured_cache_still_offered(tmp_path, monkeypatch):
     ctx = RunContext(yes=True, quiet=True, log_path=tmp_path / "t.log")
     clean.run(ctx)
     assert "purge" in calls  # size-unknown must not hide the group
+
+
+def test_mixed_confirms_run_only_approved_groups(tmp_path, monkeypatch):
+    calls = []
+    _stub(monkeypatch, calls, [_ORPHAN], [_MODEL])
+    answers = iter([True, False, False, False])  # orphans yes; models/caches/temp no
+    ctx = RunContext(quiet=True, log_path=tmp_path / "t.log")
+    monkeypatch.setattr(ctx, "confirm", lambda q, default_no=True: next(answers))
+    result = clean.run(ctx)
+    assert "kill" in calls
+    for skipped in ("unload", "purge", "temp7"):
+        assert skipped not in calls
+    assert "targets" in calls  # targets group delegates its own confirms
+    assert result["reclaimed"]["ram_bytes"] == 100  # orphan rss only

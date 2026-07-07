@@ -86,13 +86,21 @@ def _acquire_lock(ctx) -> "object | None":
             fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         except FileExistsError:
             try:
-                existing = int(lock.read_text().strip())
-            except (ValueError, OSError):
+                raw = lock.read_text()
+            except OSError:
+                return None
+            try:
+                existing = int(raw.strip())
+            except ValueError:
                 existing = 0
             alive = existing > 0 and psutil.pid_exists(existing)
             if alive and not ctx.force_unlock:
                 return None
             try:
+                # Narrow the reclaim race (#19): if the lockfile changed since
+                # we judged it stale, another process reclaimed it - back off.
+                if lock.read_text() != raw:
+                    return None
                 lock.unlink()
             except OSError:
                 return None
