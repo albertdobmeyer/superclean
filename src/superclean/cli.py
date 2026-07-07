@@ -39,7 +39,7 @@ the cleanup ladder (each tier includes everything lighter):
   sweep   tier 2    + kill orphaned dev processes, RAM/VRAM relief
   scrub   tier 3    + package caches (pip/npm/uv/pnpm/yarn), temp >7d, targets.conf
   wipe    tier 4    + heavy: browser caches, full temp (Windows deep-clean backend)
-  nuke    tier 5    + destructive: Docker reset, Windows.old  [type NUKE to confirm]
+  nuke    tier 5    + destructive: Docker reset, Windows.old (Windows)  [type NUKE to confirm]
 
 start here:
   superclean                    see what is going on (changes nothing)
@@ -54,7 +54,7 @@ logs: one file per day in your user data dir; `superclean last` replays the newe
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="superclean",
-        description="Agentic-dev garbage collector: reclaim RAM, VRAM, and disk "
+        description="Agentic-dev garbage collector: reclaim RAM, VRAM, and disk\n"
         "left by parallel dev work, without killing your active tools.",
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -126,7 +126,11 @@ def test_init_json_envelope(tmp_path, monkeypatch, capsys):
 def test_help_documents_ladder_and_commands():
     help_text = cli.build_parser().format_help()
     for needle in ("dust", "sweep", "scrub", "wipe", "nuke", "clean", "init", "last",
-                   "cleanup ladder", "start here", "--dry-run", "NUKE"):
+                   "cleanup ladder", "start here", "--dry-run", "NUKE",
+                   "14 days", ">7d"):
         assert needle in help_text, needle
     # metavar hides the raw choices dump from usage and help body
     assert "{report,protected,ram" not in help_text
+    # raw formatter means WE own wrapping: no rendered line may exceed 100 cols
+    for line in help_text.splitlines():
+        assert len(line) <= 100, f"overlong help line ({len(line)}): {line!r}"
