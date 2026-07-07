@@ -66,7 +66,7 @@ def gather(ctx) -> dict:
         except (PermissionError, OSError):
             continue
 
-    services = {"Ollama (11434)": "http://localhost:11434/api/tags"}
+    services = {"Ollama": ollama.base_url() + "/api/tags"}
     services.update(config.services())
     service_health = {name: _service_up(url) for name, url in services.items()}
 
