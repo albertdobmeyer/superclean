@@ -9,8 +9,9 @@ import urllib.request
 
 import psutil
 
-from superclean import config, ollama, orphans, perimeter, ports as ports_mod
-from superclean import procs as procs_mod
+from superclean import (
+    config, gpu, ollama, orphans, perimeter, ports as ports_mod, procs as procs_mod,
+)
 from superclean.util import data_dir, friendly_size
 
 _SKIP_FSTYPES = {"squashfs", "iso9660", "erofs"}
@@ -87,6 +88,7 @@ def gather(ctx) -> dict:
             "available": vm.available,
             "percent": vm.percent,
         },
+        "gpus": gpu.gpus(),
         "top_processes": [
             {**t, "protected": t["pid"] in protected} for t in top
         ],
@@ -124,6 +126,18 @@ def run(ctx) -> dict:
         f"{friendly_size(m['total'])} ({m['percent']}%), "
         f"{friendly_size(m['available'])} free"
     )
+
+    ctx.log("")
+    ctx.log("== GPU / VRAM ==", "HEAD")
+    if not data["gpus"]:
+        ctx.log("  No GPU VRAM info discoverable on this system.", "SKIP")
+    else:
+        for g in data["gpus"]:
+            pct = (g["vram_used"] / g["vram_total"] * 100) if g["vram_total"] else 0
+            ctx.log(
+                f"  {g['name']:<28} {friendly_size(g['vram_used'])} used of "
+                f"{friendly_size(g['vram_total'])} ({pct:.0f}%)"
+            )
 
     ctx.log("")
     ctx.log("== TOP 10 PROCESSES BY RAM ==", "HEAD")
