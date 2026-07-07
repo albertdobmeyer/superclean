@@ -30,6 +30,9 @@ jobs:
           superclean report --json
           superclean protected --json
           superclean sweep --dry-run --json
+          superclean clean --dry-run --yes --json
+          superclean init --json
+          superclean last --json
 
   no-em-dashes:
     runs-on: ubuntu-latest

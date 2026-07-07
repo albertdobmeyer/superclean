@@ -19,11 +19,11 @@ import time
 
 import psutil
 
-from superclean import __version__, config, platform_backend, report as report_mod
+from superclean import __version__, clean as clean_mod, config, platform_backend, report as report_mod
 from superclean.util import RunContext, data_dir
 
 TIERS = ["dust", "sweep", "scrub", "wipe", "nuke"]
-COMMANDS = ["report", "protected", "ram", "init", "last", *TIERS]
+COMMANDS = ["report", "protected", "ram", "clean", "init", "last", *TIERS]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -143,6 +143,8 @@ def main(argv: "list[str] | None" = None) -> int:
         ctx.log(f"Command: {cmd}   DryRun: {ctx.dry_run}   PID: {os.getpid()}")
         if cmd == "ram":
             result = platform_backend.run_ram(ctx)
+        elif cmd == "clean":
+            result = clean_mod.run(ctx)
         else:
             result = platform_backend.run_tier(ctx, cmd)
         elapsed = time.time() - start
