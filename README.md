@@ -8,13 +8,14 @@
 ![license](https://img.shields.io/badge/license-MIT-green)
 
 <p align="center">
-  <img src="assets/demo.svg" alt="superclean report then sweep: it finds an orphaned dev server and reclaims 1.45 GB of RAM, leaving 302 protected processes untouched" width="680">
+  <img src="assets/demo.svg" alt="superclean report then guided clean: it finds an orphaned dev server holding a port, an idle model in VRAM, and stale caches, then reclaims them group by group with confirmation" width="680">
 </p>
 
 ## Quick start
 
 ```bash
 uvx superclean-cli            # safe read-only report, changes nothing
+uvx superclean-cli clean      # guided cleanup: confirm each proposed group
 uvx superclean-cli sweep      # reclaim RAM/VRAM, kill orphaned dev servers
 ```
 
@@ -42,13 +43,15 @@ Cleanup escalates through five additive tiers. Each includes everything lighter.
 | Command | Tier | What it adds |
 |---------|------|--------------|
 | `superclean` | (none) | Safe read-only **report**. Changes nothing. |
-| `superclean dust` | 1 | Lightest, always-safe: old temp scratch, trivial caches. |
+| `superclean dust` | 1 | Lightest, always-safe: temp scratch older than 14 days. |
 | `superclean sweep` | 2 | + reclaim live resources: orphan-process kill, RAM/VRAM relief. |
-| `superclean scrub` | 3 | + the standard deep clean: package caches, idle model unload, logs. |
+| `superclean scrub` | 3 | + the standard deep clean: package caches, idle model unload, temp >7 days. |
 | `superclean wipe` | 4 | + heavy and deliberate: browser caches, full temp, Playwright builds. |
 | `superclean nuke` | 5 | + destructive: Docker reset, Windows.old. Requires typing `NUKE`. |
 
-Risk rises with the climb: tiers 1-3 are everyday-safe, `wipe` confirms, `nuke` makes you type the word. Plus three utilities: `superclean report`, `superclean ram` (RAM/VRAM relief only, no disk), and `superclean protected` (show what is shielded).
+Risk rises with the climb: tiers 1-3 are everyday-safe, `wipe` confirms, `nuke` makes you type the word. Prefer not to pick a tier? `superclean clean` runs a guided cleanup: it diagnoses the machine, proposes each action group with measured sizes (orphans, idle models, caches, old temp, targets.conf), and runs only what you confirm. Utilities: `superclean report`, `superclean ram` (RAM/VRAM relief only, no disk), `superclean protected` (the shield list), `superclean init` (scaffold the config files), and `superclean last` (replay the previous run).
+
+The report also shows listening TCP ports with their owning process (ports held by orphaned dev servers are flagged) and GPU/VRAM usage (NVIDIA via nvidia-smi, AMD via sysfs). On macOS, listing other users' ports requires root; the section degrades gracefully.
 
 ## The safety promise
 
@@ -84,6 +87,7 @@ Then, on any OS:
 
 ```bash
 uvx superclean-cli              # safe read-only report, changes nothing
+uvx superclean-cli clean        # guided cleanup: confirm each proposed group
 uvx superclean-cli sweep        # reclaim live resources
 ```
 
@@ -103,15 +107,15 @@ name `superclean` was taken); the installed command is `superclean`.
 
 ```bash
 superclean                  # see what is going on, change nothing
-superclean sweep --dry-run  # preview the tier you intend to run
-superclean sweep            # do it
+superclean clean            # guided: confirm each proposed action group
+superclean sweep --dry-run  # or preview a specific tier, then run it
 ```
 
 Start at the lightest tier that solves your problem: `sweep` for "too many orphan processes and VRAM is full", `scrub` for "disk is filling up". Reach for `wipe` and `nuke` deliberately.
 
 ## Configuration
 
-Three optional files, shared by every platform. superclean looks for them via `SUPERCLEAN_CONF_DIR`, then your per-user config dir, then the bundled examples. Lines starting with `#` are comments.
+Three optional files, shared by every platform (`superclean init` copies the commented examples into your per-user config dir). superclean looks for each file via `SUPERCLEAN_CONF_DIR`, then your per-user config dir, then the bundled examples. Lines starting with `#` are comments.
 
 - **`protect.conf`** - extra process names to never touch (one per line).
 - **`targets.conf`** - extra folders to age out at `scrub` (`path|days|label`). This is where machine-specific cleanup lives so the core stays generic.
@@ -137,6 +141,8 @@ Every run is logged in full under your per-user data directory:
 - Windows: `%LOCALAPPDATA%\superclean\`
 - macOS: `~/Library/Application Support/superclean/`
 - Linux: `$XDG_STATE_HOME/superclean/` (or `~/.local/state/superclean/`)
+
+`superclean last` replays the newest mutating run from these logs.
 
 ## Safety notes
 
