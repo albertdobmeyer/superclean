@@ -13,6 +13,20 @@ from superclean import config, ollama, orphans, perimeter
 from superclean import procs as procs_mod
 from superclean.util import friendly_size
 
+_SKIP_FSTYPES = {"squashfs", "iso9660", "erofs"}
+
+
+def _keep_partition(part) -> bool:
+    """Real, writable disks only: no snap/squashfs images, loop devices, or ro mounts."""
+    if part.fstype in _SKIP_FSTYPES:
+        return False
+    if part.device.startswith("/dev/loop"):
+        return False
+    opts = set((part.opts or "").split(","))
+    if "ro" in opts:
+        return False
+    return True
+
 
 def _service_up(url: str, timeout: float = 2.0) -> str:
     try:
@@ -37,6 +51,8 @@ def gather(ctx) -> dict:
 
     drives = []
     for part in psutil.disk_partitions(all=False):
+        if not _keep_partition(part):
+            continue
         try:
             usage = psutil.disk_usage(part.mountpoint)
             drives.append(
