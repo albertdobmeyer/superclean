@@ -18,6 +18,8 @@ import time
 
 import psutil
 
+from superclean.procs import norm as _norm, snapshot as _snapshot
+
 CANDIDATE_NAMES = {
     "node", "python", "python3", "tsx", "ts-node", "esbuild", "vite",
     "next-server", "webpack", "pnpm", "yarn", "rollup", "bun", "deno",
@@ -27,21 +29,10 @@ _MIN_AGE_SECONDS = 60
 _LAUNCHER_RE = re.compile(r"(?i)\b(uvx|pipx|superclean)\b")
 
 
-def _norm(name: str | None) -> str:
-    if not name:
-        return ""
-    return name.lower().removesuffix(".exe")
-
-
-def find_orphans(protected: set[int]) -> list[dict]:
+def find_orphans(protected: set[int], procs: "dict[int, dict] | None" = None) -> list[dict]:
     """Return candidate orphan processes. Read-only; never kills."""
     now = time.time()
-    procs: dict[int, dict] = {}
-    for p in psutil.process_iter(["pid", "name", "ppid", "cmdline", "create_time"]):
-        try:
-            procs[p.info["pid"]] = p.info
-        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
-            continue
+    procs = procs if procs is not None else _snapshot()
 
     orphans = []
     for pid, info in procs.items():

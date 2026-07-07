@@ -18,6 +18,8 @@ import re
 
 import psutil
 
+from superclean.procs import norm as _norm, snapshot as _snapshot
+
 # Lowercased, no .exe. Generous on purpose: over-protecting is safe, under-
 # protecting is not. Note that "node"/"python" are deliberately ABSENT here
 # (they are orphan candidates) and earn protection only via pillars 2-4.
@@ -48,12 +50,6 @@ _LAUNCHER_RE = re.compile(r"(?i)\b(uvx|pipx|superclean)\b")
 _MAX_ANCESTOR_DEPTH = 20
 
 
-def _norm(name: str | None) -> str:
-    if not name:
-        return ""
-    return name.lower().removesuffix(".exe")
-
-
 def all_protected_names(extra_names: list[str] | None = None) -> list[str]:
     from superclean import config
 
@@ -63,21 +59,12 @@ def all_protected_names(extra_names: list[str] | None = None) -> list[str]:
     return sorted(names)
 
 
-def _snapshot() -> dict[int, dict]:
-    """One pass over all processes. Returns pid -> info dict (fail-tolerant)."""
-    procs: dict[int, dict] = {}
-    for p in psutil.process_iter(["pid", "name", "ppid", "cmdline", "create_time"]):
-        try:
-            procs[p.info["pid"]] = p.info
-        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
-            continue
-    return procs
-
-
-def build_protected_pids(extra_names: list[str] | None = None) -> set[int]:
+def build_protected_pids(
+    extra_names: "list[str] | None" = None, procs: "dict[int, dict] | None" = None
+) -> set[int]:
     """Compute the full protected-PID set. Fail-closed on any error."""
     names = set(all_protected_names(extra_names))
-    procs = _snapshot()
+    procs = procs if procs is not None else _snapshot()
     protected: set[int] = set()
 
     # Pillar 1: name match.
@@ -130,15 +117,15 @@ def build_protected_pids(extra_names: list[str] | None = None) -> set[int]:
     return protected
 
 
-def running_protected_summary(extra_names: list[str] | None = None) -> dict[str, list[int]]:
+def running_protected_summary(
+    extra_names: "list[str] | None" = None, procs: "dict[int, dict] | None" = None
+) -> "dict[str, list[int]]":
     """name -> [pids] for protected names that are currently running."""
     names = set(all_protected_names(extra_names))
+    procs = procs if procs is not None else _snapshot()
     summary: dict[str, list[int]] = {}
-    for p in psutil.process_iter(["pid", "name"]):
-        try:
-            nm = _norm(p.info.get("name"))
-        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
-            continue
+    for pid, info in procs.items():
+        nm = _norm(info.get("name"))
         if nm in names:
-            summary.setdefault(nm, []).append(p.info["pid"])
+            summary.setdefault(nm, []).append(pid)
     return summary

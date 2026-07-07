@@ -32,15 +32,25 @@ def friendly_size(num_bytes: int) -> str:
     return f"{int(n)} B"
 
 
-def data_dir() -> Path:
-    """Per-user data directory for logs and the lockfile. Created on demand."""
+def user_dir(kind: str) -> Path:
+    """Platform base directory. kind is "config" or "state".
+
+    Windows and macOS use one base for both kinds; Linux follows XDG.
+    """
     if sys.platform == "win32":
         base = os.environ.get("LOCALAPPDATA") or str(Path.home())
     elif sys.platform == "darwin":
         base = str(Path.home() / "Library" / "Application Support")
+    elif kind == "config":
+        base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
     else:
         base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
-    d = Path(base) / "superclean"
+    return Path(base)
+
+
+def data_dir() -> Path:
+    """Per-user data directory for logs and the lockfile. Created on demand."""
+    d = user_dir("state") / "superclean"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

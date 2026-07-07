@@ -15,20 +15,15 @@ Discovery precedence (first existing dir that holds protect.conf wins):
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 _CONF_NAMES = ("protect.conf", "targets.conf", "services.conf")
 
 
 def _user_config_dir() -> Path:
-    if sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-    elif sys.platform == "darwin":
-        base = str(Path.home() / "Library" / "Application Support")
-    else:
-        base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "superclean"
+    from superclean.util import user_dir
+
+    return user_dir("config") / "superclean"
 
 
 def _bundled_conf_dir() -> Path:

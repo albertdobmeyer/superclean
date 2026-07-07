@@ -8,7 +8,7 @@ report-only for now and noted as such.
 
 from __future__ import annotations
 
-from superclean import caches, ollama, orphans, perimeter, tempprune
+from superclean import caches, ollama, orphans, perimeter, procs as procs_mod, tempprune
 
 _RANK = {"dust": 1, "sweep": 2, "scrub": 3, "wipe": 4, "nuke": 5}
 
@@ -17,8 +17,9 @@ def _ram_relief(ctx) -> dict:
     """Orphan kill + idle Ollama unload. Shared by `ram` and `sweep`+."""
     ctx.log("")
     ctx.log("== Smart orphan dev procs ==", "HEAD")
-    protected = perimeter.build_protected_pids()
-    found = orphans.find_orphans(protected)
+    snap = procs_mod.snapshot()
+    protected = perimeter.build_protected_pids(procs=snap)
+    found = orphans.find_orphans(protected, procs=snap)
     kill = orphans.kill_orphans(found, ctx)
 
     ctx.log("")
