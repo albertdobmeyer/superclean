@@ -5,7 +5,8 @@ The same three optional files used by the PowerShell backend, shared verbatim:
   targets.conf   path|days|label   (extra folders to age out)
   services.conf  label|url         (extra health checks)
 
-Discovery precedence (first existing dir that holds protect.conf wins):
+Discovery precedence: first existing dir that holds any conf file wins for conf_dir();
+each FILE is then resolved independently through the same chain.
   1. SUPERCLEAN_CONF_DIR env var
   2. per-user config dir (platform-specific)
   3. bundled examples shipped in the wheel
@@ -36,15 +37,27 @@ def _repo_root_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def conf_dir() -> Path:
-    """Return the directory holding the conf files (see precedence above)."""
+def _candidate_dirs() -> "list[Path]":
     env = os.environ.get("SUPERCLEAN_CONF_DIR")
     candidates = []
     if env:
         candidates.append(Path(env))
     candidates.extend([_user_config_dir(), _bundled_conf_dir(), _repo_root_dir()])
-    for c in candidates:
-        if (c / "protect.conf").exists():
+    return candidates
+
+
+def _find_conf_file(name: str) -> "Path | None":
+    """First existing instance of this conf file across the candidate chain."""
+    for c in _candidate_dirs():
+        if (c / name).exists():
+            return c / name
+    return None
+
+
+def conf_dir() -> Path:
+    """First candidate dir holding ANY of the three conf files (see precedence)."""
+    for c in _candidate_dirs():
+        if any((c / n).exists() for n in _CONF_NAMES):
             return c
     # Nothing found: prefer the per-user dir so a first run has a stable home.
     return _user_config_dir()
@@ -56,9 +69,13 @@ def export_conf_dir_env() -> None:
 
 
 def read_conf_lines(name: str) -> list[str]:
-    """Non-empty, non-comment lines from a conf file. Empty list if missing."""
-    path = conf_dir() / name
-    if not path.exists():
+    """Non-empty, non-comment lines from a conf file. Empty list if missing.
+
+    Each file is resolved independently, so a user dir holding only
+    targets.conf still gets protect.conf/services.conf from the examples.
+    """
+    path = _find_conf_file(name)
+    if path is None:
         return []
     out = []
     try:

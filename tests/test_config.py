@@ -1,0 +1,51 @@
+"""Config discovery: any conf file marks a dir; missing files fall back per-file."""
+from __future__ import annotations
+
+from pathlib import Path
+
+from superclean import config
+
+
+def _isolate(monkeypatch, tmp_path):
+    """Keep the developer machine's real config dirs and repo root out of the chain."""
+    monkeypatch.setattr(config, "_user_config_dir", lambda: tmp_path / "no-user-dir")
+    monkeypatch.setattr(config, "_repo_root_dir", lambda: tmp_path / "no-repo-root")
+
+
+def test_dir_with_only_targets_conf_is_honored(tmp_path, monkeypatch):
+    _isolate(monkeypatch, tmp_path)
+    (tmp_path / "targets.conf").write_text("/data/renders|14|Renders\n")
+    monkeypatch.setenv("SUPERCLEAN_CONF_DIR", str(tmp_path))
+    assert config.conf_dir() == tmp_path
+    assert ("/data/renders", 14, "Renders") in config.targets()
+
+
+def test_per_file_fallback(tmp_path, monkeypatch):
+    _isolate(monkeypatch, tmp_path)
+    user = tmp_path / "user"
+    bundled = tmp_path / "bundled"
+    user.mkdir()
+    bundled.mkdir()
+    (user / "targets.conf").write_text("/data/x|7|X\n")
+    (bundled / "protect.conf").write_text("neovide\n")
+    (bundled / "services.conf").write_text("API|http://localhost:9999/health\n")
+    monkeypatch.setenv("SUPERCLEAN_CONF_DIR", str(user))
+    monkeypatch.setattr(config, "_bundled_conf_dir", lambda: bundled)
+    # user dir wins for the file it has...
+    assert ("/data/x", 7, "X") in config.targets()
+    # ...and the other two fall back to the bundled examples
+    assert config.protect_names() == ["neovide"]
+    assert config.services() == {"API": "http://localhost:9999/health"}
+
+
+def test_user_file_shadows_bundled(tmp_path, monkeypatch):
+    _isolate(monkeypatch, tmp_path)
+    user = tmp_path / "user"
+    bundled = tmp_path / "bundled"
+    user.mkdir()
+    bundled.mkdir()
+    (user / "protect.conf").write_text("warp\n")
+    (bundled / "protect.conf").write_text("neovide\n")
+    monkeypatch.setenv("SUPERCLEAN_CONF_DIR", str(user))
+    monkeypatch.setattr(config, "_bundled_conf_dir", lambda: bundled)
+    assert config.protect_names() == ["warp"]
