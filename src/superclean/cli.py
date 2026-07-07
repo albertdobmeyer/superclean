@@ -73,6 +73,14 @@ def _acquire_lock(ctx) -> "object | None":
             return None
         with os.fdopen(fd, "w") as fh:
             fh.write(str(os.getpid()))
+        # Verify ownership: if another process reclaimed the same stale lock
+        # concurrently, its unlink+recreate may have replaced our file. The
+        # loser must back off WITHOUT unlinking the winner's lock.
+        try:
+            if lock.read_text().strip() != str(os.getpid()):
+                return None
+        except OSError:
+            return None
         return lock
     return None
 
@@ -81,6 +89,8 @@ def _release_lock(lock) -> None:
     if lock is None:
         return
     try:
+        if lock.read_text().strip() != str(os.getpid()):
+            return  # not ours (lost race / clobbered): leave it alone
         lock.unlink()
     except OSError:
         pass
