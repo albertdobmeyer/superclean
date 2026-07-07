@@ -139,25 +139,29 @@ def main(argv: "list[str] | None" = None) -> int:
     cmd = args.command
 
     # Read-only commands: no lock needed.
-    if cmd == "report":
-        result = report_mod.run(ctx)
-        return _finish(ctx, cmd, result, 0)
-    if cmd == "protected":
-        result = report_mod.list_protected(ctx)
-        return _finish(ctx, cmd, result, 0)
-    if cmd == "init":
-        result = config.init_user_conf()
-        ctx.log(f"Config dir: {result['dir']}")
-        levels = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}
-        for name, status in result["files"].items():
-            ctx.log(f"  {name:<15} {status}", levels.get(status, "ERROR"))
-        failed = "error" in result or "write-failed" in result["files"].values()
-        if failed and result.get("error"):
-            ctx.log(f"  {result['error']}", "ERROR")
-        return _finish(ctx, cmd, result, 3 if failed else 0)
-    if cmd == "last":
-        result = report_mod.last_run(ctx)
-        return _finish(ctx, cmd, result, 0)
+    try:
+        if cmd == "report":
+            result = report_mod.run(ctx)
+            return _finish(ctx, cmd, result, 0)
+        if cmd == "protected":
+            result = report_mod.list_protected(ctx)
+            return _finish(ctx, cmd, result, 0)
+        if cmd == "init":
+            result = config.init_user_conf()
+            ctx.log(f"Config dir: {result['dir']}")
+            levels = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}
+            for name, status in result["files"].items():
+                ctx.log(f"  {name:<15} {status}", levels.get(status, "ERROR"))
+            failed = "error" in result or "write-failed" in result["files"].values()
+            if failed and result.get("error"):
+                ctx.log(f"  {result['error']}", "ERROR")
+            return _finish(ctx, cmd, result, 3 if failed else 0)
+        if cmd == "last":
+            result = report_mod.last_run(ctx)
+            return _finish(ctx, cmd, result, 0)
+    except Exception as exc:  # noqa: BLE001 - top-level guard, report and exit 3
+        ctx.log(f"FATAL: {exc}", "ERROR")
+        return _finish(ctx, cmd, {"error": str(exc)}, 3)
 
     # Mutating commands (ram + tiers): acquire the single lock.
     lock = _acquire_lock(ctx)

@@ -134,3 +134,14 @@ def test_help_documents_ladder_and_commands():
     # raw formatter means WE own wrapping: no rendered line may exceed 100 cols
     for line in help_text.splitlines():
         assert len(line) <= 100, f"overlong help line ({len(line)}): {line!r}"
+
+
+def test_json_fatal_in_readonly_command_emits_envelope(tmp_path, monkeypatch, capsys):
+    def boom(ctx):
+        raise RuntimeError("report exploded")
+
+    monkeypatch.setattr(cli.report_mod, "run", boom)
+    code = cli.main(["report", "--json", "--log", str(tmp_path / "t.log")])
+    assert code == 3
+    data = json.loads(capsys.readouterr().out)  # exactly one valid JSON document
+    assert "report exploded" in data["result"]["error"]
