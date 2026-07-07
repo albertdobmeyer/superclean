@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="691" height="725" viewBox="0 0 691 725" font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace" font-size="14">
-<rect width="691" height="725" rx="10" fill="#0d1117"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="691" height="788" viewBox="0 0 691 788" font-family="ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace" font-size="14">
+<rect width="691" height="788" rx="10" fill="#0d1117"/>
 <rect width="691" height="38" rx="10" fill="#161b22"/>
 <rect y="28" width="691" height="10" fill="#161b22"/>
 <circle cx="20" cy="19.0" r="6" fill="#ff5f56"/>
@@ -11,9 +11,9 @@
 <text x="18" y="91" fill="#56d4dd" xml:space="preserve">SUPERCLEAN -- REPORT</text>
 <text x="18" y="112" fill="#c9d1d9" xml:space="preserve">  platform: Linux-6.17-x86_64</text>
 <text x="18" y="133" fill="#56d4dd" xml:space="preserve">== MEMORY ==</text>
-<text x="18" y="154" fill="#c9d1d9" xml:space="preserve">  RAM: 5.9 GB used of 7.2 GB (82%), 1.3 GB free</text>
+<text x="18" y="154" fill="#c9d1d9" xml:space="preserve">  RAM: 5.94 GB used of 7.18 GB (82.7%), 1.24 GB free</text>
 <text x="18" y="175" fill="#56d4dd" xml:space="preserve">== GPU / VRAM ==</text>
-<text x="18" y="196" fill="#c9d1d9" xml:space="preserve">  card1 (amdgpu)               3.2 GB used of 4.1 GB (78%)</text>
+<text x="18" y="196" fill="#c9d1d9" xml:space="preserve">  card1 (amdgpu)               3.21 GB used of 4.00 GB (80%)</text>
 <text x="18" y="217" fill="#56d4dd" xml:space="preserve">== ORPHAN DEV PROCESSES ==</text>
 <text x="18" y="238" fill="#d29922" xml:space="preserve">  Found 1 orphan(s):</text>
 <text x="18" y="259" fill="#c9d1d9" xml:space="preserve">    PID 87411   node         node /home/al/app/node_modules/.bin/vite</text>
@@ -24,18 +24,21 @@
 <text x="18" y="364" fill="#8b949e" xml:space="preserve">`superclean clean` walks cleanup with a confirmation per group.</text>
 <text x="18" y="406" fill="#3fb950">$</text>
 <text x="34.8" y="406" fill="#e6edf3">uvx superclean-cli clean</text>
-<text x="18" y="427" fill="#56d4dd" xml:space="preserve">== 1. Orphaned dev processes ==</text>
-<text x="18" y="448" fill="#d29922" xml:space="preserve">  1 orphan(s) holding ~612 MB RAM.</text>
-<text x="18" y="469" fill="#c9d1d9" xml:space="preserve">  Kill 1 orphan(s)? [y/N] y</text>
-<text x="18" y="490" fill="#3fb950" xml:space="preserve">    Killed PID 87411</text>
-<text x="18" y="511" fill="#56d4dd" xml:space="preserve">== 2. Idle Ollama models (no keep-alive) ==</text>
-<text x="18" y="532" fill="#c9d1d9" xml:space="preserve">    qwen2.5-coder:7b               4.7 GB</text>
-<text x="18" y="553" fill="#c9d1d9" xml:space="preserve">  Unload 1 idle model(s) (~4.7 GB)? [y/N] y</text>
-<text x="18" y="574" fill="#3fb950" xml:space="preserve">    Unloaded qwen2.5-coder:7b (~4.7 GB).</text>
-<text x="18" y="595" fill="#56d4dd" xml:space="preserve">== 3. Package-manager caches ==</text>
-<text x="18" y="616" fill="#c9d1d9" xml:space="preserve">    pip      ~412 MB</text>
-<text x="18" y="637" fill="#c9d1d9" xml:space="preserve">    npm      ~823 MB</text>
-<text x="18" y="658" fill="#c9d1d9" xml:space="preserve">  Purge these caches (~1.2 GB measured)? [y/N] y</text>
-<text x="18" y="679" fill="#3fb950" xml:space="preserve">  pip: freed 412 MB.  npm: freed 823 MB.</text>
-<text x="18" y="700" fill="#3fb950" xml:space="preserve">  Reclaimed: 5.3 GB memory, 1.2 GB disk.</text>
+<text x="18" y="427" fill="#56d4dd" xml:space="preserve">SUPERCLEAN -- GUIDED CLEAN</text>
+<text x="18" y="448" fill="#56d4dd" xml:space="preserve">== 1. Orphaned dev processes ==</text>
+<text x="18" y="469" fill="#c9d1d9" xml:space="preserve">    PID 87411   node         node /home/al/app/node_modules/.bin/vite</text>
+<text x="18" y="490" fill="#d29922" xml:space="preserve">  1 orphan(s) holding ~612.00 MB RAM.</text>
+<text x="18" y="511" fill="#c9d1d9" xml:space="preserve">  Kill 1 orphan(s)? [y/N] y</text>
+<text x="18" y="532" fill="#3fb950" xml:space="preserve">    Killed PID 87411</text>
+<text x="18" y="553" fill="#56d4dd" xml:space="preserve">== 2. Idle Ollama models (no keep-alive) ==</text>
+<text x="18" y="574" fill="#c9d1d9" xml:space="preserve">    gemma3:1b                      815.00 MB</text>
+<text x="18" y="595" fill="#c9d1d9" xml:space="preserve">  Unload 1 idle model(s) (~815.00 MB)? [y/N] y</text>
+<text x="18" y="616" fill="#3fb950" xml:space="preserve">  Unloaded gemma3:1b (~815.00 MB).</text>
+<text x="18" y="637" fill="#56d4dd" xml:space="preserve">== 3. Package-manager caches ==</text>
+<text x="18" y="658" fill="#c9d1d9" xml:space="preserve">    pip      ~412.00 MB</text>
+<text x="18" y="679" fill="#c9d1d9" xml:space="preserve">    npm      ~823.00 MB</text>
+<text x="18" y="700" fill="#c9d1d9" xml:space="preserve">  Purge these caches (~1.21 GB measured)? [y/N] y</text>
+<text x="18" y="721" fill="#3fb950" xml:space="preserve">  pip (/usr/bin/python3): freed 412.00 MB.</text>
+<text x="18" y="742" fill="#3fb950" xml:space="preserve">  npm: freed 823.00 MB.</text>
+<text x="18" y="763" fill="#3fb950" xml:space="preserve">  Reclaimed: 1.39 GB memory, 1.21 GB disk.</text>
 </svg>

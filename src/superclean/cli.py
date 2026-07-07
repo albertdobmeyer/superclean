@@ -4,7 +4,7 @@
   superclean clean        guided cleanup: diagnose, confirm each group, execute
   superclean dust         tier 1  lightest, always-safe (temp >14d)
   superclean sweep        tier 2  + orphan kill, RAM/VRAM relief
-  superclean scrub        tier 3  + package caches, idle model unload, temp >7d
+  superclean scrub        tier 3  + package caches, temp >7d, targets.conf
   superclean wipe         tier 4  + heavy (browser/temp; Windows full deep-clean)
   superclean nuke         tier 5  destructive (Docker reset, Windows.old) [type NUKE]
   superclean report | ram | protected | init | last

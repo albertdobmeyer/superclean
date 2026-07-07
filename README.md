@@ -45,7 +45,7 @@ Cleanup escalates through five additive tiers. Each includes everything lighter.
 | `superclean` | (none) | Safe read-only **report**. Changes nothing. |
 | `superclean dust` | 1 | Lightest, always-safe: temp scratch older than 14 days. |
 | `superclean sweep` | 2 | + reclaim live resources: orphan-process kill, RAM/VRAM relief. |
-| `superclean scrub` | 3 | + the standard deep clean: package caches, idle model unload, temp >7 days. |
+| `superclean scrub` | 3 | + the standard deep clean: package caches (pip/npm/uv/pnpm/yarn), temp >7 days, targets.conf. |
 | `superclean wipe` | 4 | + heavy and deliberate: browser caches, full temp, Playwright builds. |
 | `superclean nuke` | 5 | + destructive: Docker reset, Windows.old. Requires typing `NUKE`. |
 
