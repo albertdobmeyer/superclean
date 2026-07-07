@@ -39,7 +39,7 @@ def run_tier(ctx, tier: str) -> dict:
     results: dict = {}
 
     # dust (rank 1): lightest, always-safe.
-    results["temp_light"] = tempprune.prune_temp(ctx, days=3)
+    results["temp_light"] = tempprune.prune_temp(ctx, days=14)
 
     # sweep (rank 2): reclaim live resources.
     if rank >= 2:
