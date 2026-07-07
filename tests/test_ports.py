@@ -44,3 +44,19 @@ def test_access_denied_degrades_to_empty(monkeypatch):
 
     monkeypatch.setattr(ports.psutil, "net_connections", boom)
     assert ports.listening_ports({}, protected=set()) == []
+
+
+def test_oserror_degrades_to_empty(monkeypatch):
+    def boom(kind="tcp"):
+        raise OSError("proc table went away")
+
+    monkeypatch.setattr(ports.psutil, "net_connections", boom)
+    assert ports.listening_ports({}, protected=set()) == []
+
+
+def test_report_ports_entries_carry_orphan_bool(tmp_path):
+    from superclean import report
+    from superclean.util import RunContext
+
+    data = report.gather(RunContext(json=True, log_path=tmp_path / "t.log"))
+    assert all(isinstance(p.get("orphan"), bool) for p in data["ports"])

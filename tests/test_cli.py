@@ -145,3 +145,20 @@ def test_json_fatal_in_readonly_command_emits_envelope(tmp_path, monkeypatch, ca
     assert code == 3
     data = json.loads(capsys.readouterr().out)  # exactly one valid JSON document
     assert "report exploded" in data["result"]["error"]
+
+
+def test_reclaim_backs_off_if_lock_changes_before_unlink(tmp_path, monkeypatch):
+    # Narrowing for issue #19: between judging a lock stale and unlinking it,
+    # another process may have reclaimed it. The reclaimer must re-read and
+    # back off instead of deleting the winner's lock.
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    lock = tmp_path / "superclean.lock"
+    lock.write_text("999999999")  # dead pid -> judged stale
+
+    def pid_exists_with_race(pid):
+        lock.write_text(str(os.getpid()))  # simulate the other process winning NOW
+        return False
+
+    monkeypatch.setattr(cli.psutil, "pid_exists", pid_exists_with_race)
+    assert cli._acquire_lock(_ctx()) is None  # must back off, not steal
+    assert lock.read_text() == str(os.getpid())  # winner's lock untouched

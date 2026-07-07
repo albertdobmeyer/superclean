@@ -57,3 +57,24 @@ def test_gpus_empty_when_nothing(monkeypatch, tmp_path):
     monkeypatch.setattr(gpu, "_nvidia", lambda: [])
     monkeypatch.setattr(gpu, "_amd_sysfs", lambda root=None: [])
     assert gpu.gpus() == []
+
+
+def test_nvidia_malformed_lines_skipped(monkeypatch):
+    monkeypatch.setattr(gpu.shutil, "which", lambda exe: "/usr/bin/nvidia-smi")
+
+    def fake_run(*a, **k):
+        return subprocess.CompletedProcess(
+            a[0], returncode=0,
+            stdout="garbage line\nGPU X, notanint, 8192\nGPU Y, 512, 8192\n", stderr="")
+
+    monkeypatch.setattr(gpu.subprocess, "run", fake_run)
+    out = gpu._nvidia()
+    assert [g["name"] for g in out] == ["GPU Y"]
+
+
+def test_amd_sysfs_bad_values_skipped(tmp_path):
+    dev = tmp_path / "card0" / "device"
+    dev.mkdir(parents=True)
+    (dev / "mem_info_vram_used").write_text("not-a-number\n")
+    (dev / "mem_info_vram_total").write_text("4294967296\n")
+    assert gpu._amd_sysfs(root=tmp_path) == []

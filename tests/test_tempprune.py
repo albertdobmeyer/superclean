@@ -91,3 +91,38 @@ def test_is_live_session_dir_patterns():
         assert _is_live_session_dir(name)
     for name in ("build", "pip-cache", "pytest-of-albertd"):
         assert not _is_live_session_dir(name)
+
+
+class _RealCtx:
+    dry_run = False
+
+    def log(self, *a, **k):
+        pass
+
+
+def test_real_unlink_deletes_old_and_spares_protected(tmp_path):
+    old = tmp_path / "stale.log"
+    old.write_text("x" * 10)
+    _make_old(old)
+    fresh = tmp_path / "fresh.log"
+    fresh.write_text("y")
+    sess = tmp_path / "claude-1000"
+    sess.mkdir()
+    inside = sess / "old.txt"
+    inside.write_text("z")
+    _make_old(inside)
+    stats = _age_out(tmp_path, days=7, ctx=_RealCtx(), protect_session_dirs=True)
+    assert not old.exists()          # genuinely deleted, not just counted
+    assert fresh.exists()
+    assert inside.exists()           # live-session dir untouched in a REAL run
+    assert stats["files"] == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="fifos")
+def test_fifo_is_never_touched(tmp_path):
+    fifo = tmp_path / "pipe.fifo"
+    os.mkfifo(fifo)
+    _make_old(fifo)
+    stats = _age_out(tmp_path, days=7, ctx=_RealCtx())
+    assert fifo.exists()
+    assert stats["files"] == 0

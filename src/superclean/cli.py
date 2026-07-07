@@ -1,12 +1,13 @@
 """superclean command-line entry point.
 
   superclean              report (safe, read-only, no changes)
-  superclean dust         tier 1  lightest, always-safe
+  superclean clean        guided cleanup: diagnose, confirm each group, execute
+  superclean dust         tier 1  lightest, always-safe (temp >14d)
   superclean sweep        tier 2  + orphan kill, RAM/VRAM relief
-  superclean scrub        tier 3  + package caches, idle model unload, temp
+  superclean scrub        tier 3  + package caches, temp >7d, targets.conf
   superclean wipe         tier 4  + heavy (browser/temp; Windows full deep-clean)
   superclean nuke         tier 5  destructive (Docker reset, Windows.old) [type NUKE]
-  superclean report | ram | protected
+  superclean report | ram | protected | init | last
 """
 
 from __future__ import annotations
@@ -86,13 +87,21 @@ def _acquire_lock(ctx) -> "object | None":
             fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         except FileExistsError:
             try:
-                existing = int(lock.read_text().strip())
-            except (ValueError, OSError):
+                raw = lock.read_text()
+            except OSError:
+                return None
+            try:
+                existing = int(raw.strip())
+            except ValueError:
                 existing = 0
             alive = existing > 0 and psutil.pid_exists(existing)
             if alive and not ctx.force_unlock:
                 return None
             try:
+                # Narrow the reclaim race (#19): if the lockfile changed since
+                # we judged it stale, another process reclaimed it - back off.
+                if lock.read_text() != raw:
+                    return None
                 lock.unlink()
             except OSError:
                 return None

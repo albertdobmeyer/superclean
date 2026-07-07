@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 
 from superclean import caches
 from superclean.backends import posix
@@ -124,3 +123,17 @@ def test_sizes_omits_missing_cache_dir(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(caches, "_query_cache_dir", lambda args: tmp_path / "nope")
     assert caches.sizes() == {}
+
+
+def test_dir_size_budget_exceeded_returns_none(monkeypatch, tmp_path):
+    (tmp_path / "a.bin").write_bytes(b"x")
+    clock = iter([0.0, 100.0, 200.0])
+    monkeypatch.setattr(caches.time, "monotonic", lambda: next(clock))
+    assert caches._dir_size(tmp_path, budget_seconds=10.0) is None
+
+
+def test_dir_size_ignores_symlinks(tmp_path):
+    real = tmp_path / "real.bin"
+    real.write_bytes(b"x" * 100)
+    (tmp_path / "link.bin").symlink_to(real)
+    assert caches._dir_size(tmp_path) == 100
