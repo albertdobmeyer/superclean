@@ -37,6 +37,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New `superclean init`: copies the example config files into your user
   config dir (never overwrites existing files).
 - New `superclean last`: replays the previous mutating run from the logs.
+- Report: new LISTENING PORTS section (each port with its owning process,
+  protected/orphan marking; degrades gracefully without permissions) and a
+  GPU / VRAM section (nvidia-smi when present, AMD via sysfs). Both are
+  read-only and appear in `--json` as `ports` and `gpus`.
+- `superclean clean`'s cache preview now lists caches that exist but could
+  not be sized in time as "size unknown" instead of hiding them.
 
 ### Changed
 - JSON shape: `caches` entries are now `{"ok", "freed_bytes"}` objects (were
