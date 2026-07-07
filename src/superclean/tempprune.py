@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import fnmatch
 import os
+import stat
 import tempfile
 import time
 from pathlib import Path
@@ -11,17 +13,41 @@ from superclean import config
 from superclean.util import friendly_size
 
 
-def _age_out(root: Path, days: int, ctx) -> dict:
-    """Delete files older than `days` under root. Honors dry-run. Returns stats."""
+# Directories under the system temp root that belong to LIVE sessions, not
+# garbage: sockets and scratch for X11, SSH agents, tmux, systemd services,
+# audio/dbus, and AI-agent session scratchpads. Age says nothing about
+# liveness for these, so the temp pruner never descends into them.
+_LIVE_SESSION_GLOBS = (
+    ".x11-unix", ".ice-unix", ".font-unix", "ssh-*", "tmux-*",
+    "systemd-private-*", "snap-private-tmp", "pulse-*", "dbus-*", "claude-*",
+)
+
+
+def _is_live_session_dir(name: str) -> bool:
+    n = name.lower()
+    return any(fnmatch.fnmatch(n, g) for g in _LIVE_SESSION_GLOBS)
+
+
+def _age_out(root: Path, days: int, ctx, protect_session_dirs: bool = False) -> dict:
+    """Delete regular files older than `days` under root. Honors dry-run.
+
+    Safety: only regular files (sockets, FIFOs, and symlinks are never
+    touched), and with protect_session_dirs the live-session directories in
+    _LIVE_SESSION_GLOBS are not entered at all.
+    """
     if not root.exists():
         return {"files": 0, "bytes": 0, "skipped": 0, "missing": True}
     cutoff = time.time() - days * 86400
     n_files = n_bytes = n_skip = 0
-    for dirpath, _dirs, files in os.walk(root):
+    for dirpath, dirs, files in os.walk(root):
+        if protect_session_dirs:
+            dirs[:] = [d for d in dirs if not _is_live_session_dir(d)]
         for name in files:
             fp = Path(dirpath) / name
             try:
-                st = fp.stat()
+                st = fp.lstat()
+                if not stat.S_ISREG(st.st_mode):
+                    continue
                 if st.st_mtime >= cutoff:
                     continue
                 size = st.st_size
@@ -38,7 +64,7 @@ def prune_temp(ctx, days: int = 7) -> dict:
     """Age out the system temp directory."""
     ctx.log("")
     ctx.log(f"== temp files older than {days} days ==", "HEAD")
-    stats = _age_out(Path(tempfile.gettempdir()), days, ctx)
+    stats = _age_out(Path(tempfile.gettempdir()), days, ctx, protect_session_dirs=True)
     verb = "Would reclaim" if ctx.dry_run else "Reclaimed"
     ctx.log(
         f"  Files: {stats['files']}  {verb}: {friendly_size(stats['bytes'])}  "

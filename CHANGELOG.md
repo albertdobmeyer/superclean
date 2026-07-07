@@ -4,6 +4,49 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - unreleased
+
+### Fixed
+- Temp age-out ladder was inverted (dust pruned harder than scrub); dust now
+  prunes at 14 days, scrub at 7, and the pruner never touches sockets, FIFOs,
+  symlinks, or live-session directories (X11/SSH/tmux/systemd/agent scratch).
+- Drives report no longer lists snap/squashfs/loop/read-only pseudo-mounts.
+- Orphan detection now recognizes processes reparented to the user's
+  `systemd --user` subreaper (modern Linux), not just PID 1.
+- A config dir is honored if it holds ANY of the three conf files, and each
+  file falls back independently to the bundled examples.
+- The lockfile is acquired atomically (O_EXCL) and verified for ownership on
+  acquire and release; a fatal error under `--json`
+  now emits a JSON error envelope instead of nothing; the lock-busy refusal
+  does the same.
+- Cache purge reports failures honestly (exit-code checked).
+
+### Added
+- Headless browsers (Playwright/Puppeteer leftovers) are orphan candidates
+  when their command line shows `--headless`.
+- Measured reclaim: orphan kills report RSS freed, cache purges report bytes
+  freed, and every mutating run ends with a memory/disk total.
+- `OLLAMA_HOST` is honored for all Ollama probes and unloads.
+
+### Changed
+- JSON shape: `caches` entries are now `{"ok", "freed_bytes"}` objects (were
+  bare booleans/ints), and the report's service-health key is `Ollama`
+  (was `Ollama (11434)`), since the port now follows `OLLAMA_HOST`.
+- At `scrub` and above, the single 7-day temp pass replaces the separate
+  14-day dust pass it strictly subsumes (`temp_light` is absent from those
+  results).
+- The run-total reclaim line applies to the portable (macOS/Linux) tiers;
+  Windows tiers keep the PowerShell backend's own summary.
+- On macOS, read-only mounts (including the sealed system volume) are no
+  longer listed under DRIVES; the writable data volume remains.
+- The config dir handed to the Windows PowerShell backend may now be one
+  that holds any of the three conf files (Python resolves each file with
+  per-file fallback; the PS backend reads that single dir as before).
+
+### Internal
+- Single shared process snapshot per run (report previously swept all
+  processes about four times).
+
 ## [2.0.0] - unreleased
 
 Cross-platform rewrite. superclean is now a portable Python CLI (Windows, macOS,

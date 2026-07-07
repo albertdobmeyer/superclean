@@ -8,17 +8,35 @@ report-only for now and noted as such.
 
 from __future__ import annotations
 
-from superclean import caches, ollama, orphans, perimeter, tempprune
+from superclean import caches, ollama, orphans, perimeter, procs as procs_mod, tempprune
+from superclean.util import friendly_size
 
 _RANK = {"dust": 1, "sweep": 2, "scrub": 3, "wipe": 4, "nuke": 5}
+
+
+def _totals(results: dict) -> dict:
+    """Aggregate measured reclaim across all steps of a run."""
+    ram = 0
+    ram += (results.get("orphans") or {}).get("reclaimed_rss", 0)
+    ram += (results.get("ollama") or {}).get("reclaimed_bytes", 0)
+    disk = 0
+    for key in ("temp_light", "temp_deep"):
+        disk += (results.get(key) or {}).get("bytes", 0)
+    for t in results.get("targets") or []:
+        disk += t.get("bytes", 0)
+    for v in (results.get("caches") or {}).values():
+        if isinstance(v, dict):
+            disk += v.get("freed_bytes") or 0
+    return {"ram_bytes": ram, "disk_bytes": disk}
 
 
 def _ram_relief(ctx) -> dict:
     """Orphan kill + idle Ollama unload. Shared by `ram` and `sweep`+."""
     ctx.log("")
     ctx.log("== Smart orphan dev procs ==", "HEAD")
-    protected = perimeter.build_protected_pids()
-    found = orphans.find_orphans(protected)
+    snap = procs_mod.snapshot()
+    protected = perimeter.build_protected_pids(procs=snap)
+    found = orphans.find_orphans(protected, procs=snap)
     kill = orphans.kill_orphans(found, ctx)
 
     ctx.log("")
@@ -29,7 +47,17 @@ def _ram_relief(ctx) -> dict:
 
 def run_ram(ctx) -> dict:
     ctx.section("SUPERCLEAN -- RAM RELIEF")
-    return _ram_relief(ctx)
+    results = _ram_relief(ctx)
+    totals = _totals(results)
+    results["reclaimed"] = totals
+    verb = "Would reclaim (estimate)" if ctx.dry_run else "Reclaimed"
+    ctx.log("")
+    ctx.log(
+        f"  {verb}: {friendly_size(totals['ram_bytes'])} memory, "
+        f"{friendly_size(totals['disk_bytes'])} disk.",
+        "OK",
+    )
+    return results
 
 
 def run_tier(ctx, tier: str) -> dict:
@@ -37,8 +65,11 @@ def run_tier(ctx, tier: str) -> dict:
     ctx.section(f"SUPERCLEAN -- {tier.upper()}")
     results: dict = {}
 
-    # dust (rank 1): lightest, always-safe.
-    results["temp_light"] = tempprune.prune_temp(ctx, days=3)
+    # dust (rank 1): lightest, always-safe. At scrub and above the 7-day pass
+    # strictly subsumes this 14-day pass, so only one temp walk runs -- which
+    # also keeps dry-run reclaim estimates from double-counting old files.
+    if rank < 3:
+        results["temp_light"] = tempprune.prune_temp(ctx, days=14)
 
     # sweep (rank 2): reclaim live resources.
     if rank >= 2:
@@ -69,5 +100,15 @@ def run_tier(ctx, tier: str) -> dict:
             "report-only on this OS in this version. Nothing destructive run.",
             "SKIP",
         )
+
+    totals = _totals(results)
+    results["reclaimed"] = totals
+    verb = "Would reclaim (estimate)" if ctx.dry_run else "Reclaimed"
+    ctx.log("")
+    ctx.log(
+        f"  {verb}: {friendly_size(totals['ram_bytes'])} memory, "
+        f"{friendly_size(totals['disk_bytes'])} disk.",
+        "OK",
+    )
 
     return results

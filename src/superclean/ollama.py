@@ -9,17 +9,33 @@ If the daemon is not running, every call is a no-op, never an error.
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
-_BASE = "http://localhost:11434"
+_DEFAULT_PORT = 11434
 _TIMEOUT = 2.0
+
+
+def base_url() -> str:
+    """Ollama endpoint from OLLAMA_HOST (bare host, host:port, or full URL)."""
+    host = (os.environ.get("OLLAMA_HOST") or "").strip().rstrip("/")
+    if not host:
+        return f"http://localhost:{_DEFAULT_PORT}"
+    if "://" not in host:
+        host = "http://" + host
+    parts = urlsplit(host)
+    netloc = parts.netloc
+    if ":" not in netloc:
+        netloc = f"{netloc}:{_DEFAULT_PORT}"
+    return f"{parts.scheme}://{netloc}"
 
 
 def _get(path: str):
     try:
-        with urllib.request.urlopen(_BASE + path, timeout=_TIMEOUT) as resp:
+        with urllib.request.urlopen(base_url() + path, timeout=_TIMEOUT) as resp:
             if resp.status != 200:
                 return None
             return json.loads(resp.read().decode("utf-8"))
@@ -30,7 +46,7 @@ def _get(path: str):
 def _post(path: str, payload: dict) -> bool:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        _BASE + path, data=data, headers={"Content-Type": "application/json"}
+        base_url() + path, data=data, headers={"Content-Type": "application/json"}
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:

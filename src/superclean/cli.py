@@ -53,29 +53,44 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _acquire_lock(ctx) -> "object | None":
     lock = data_dir() / "superclean.lock"
-    if lock.exists():
+    for _ in range(2):  # second pass after clearing a stale lock
         try:
-            existing = int(lock.read_text().strip())
-        except (ValueError, OSError):
-            existing = 0
-        alive = existing > 0 and psutil.pid_exists(existing)
-        if alive and not ctx.force_unlock:
-            return None
-        try:
-            lock.unlink()
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        except FileExistsError:
+            try:
+                existing = int(lock.read_text().strip())
+            except (ValueError, OSError):
+                existing = 0
+            alive = existing > 0 and psutil.pid_exists(existing)
+            if alive and not ctx.force_unlock:
+                return None
+            try:
+                lock.unlink()
+            except OSError:
+                return None
+            continue
         except OSError:
-            pass
-    try:
-        lock.write_text(str(os.getpid()))
-    except OSError:
-        return None
-    return lock
+            return None
+        with os.fdopen(fd, "w") as fh:
+            fh.write(str(os.getpid()))
+        # Verify ownership: if another process reclaimed the same stale lock
+        # concurrently, its unlink+recreate may have replaced our file. The
+        # loser must back off WITHOUT unlinking the winner's lock.
+        try:
+            if lock.read_text().strip() != str(os.getpid()):
+                return None
+        except OSError:
+            return None
+        return lock
+    return None
 
 
 def _release_lock(lock) -> None:
     if lock is None:
         return
     try:
+        if lock.read_text().strip() != str(os.getpid()):
+            return  # not ours (lost race / clobbered): leave it alone
         lock.unlink()
     except OSError:
         pass
@@ -107,7 +122,7 @@ def main(argv: "list[str] | None" = None) -> int:
     lock = _acquire_lock(ctx)
     if lock is None:
         ctx.log("ERROR: another superclean run is in progress. Use --force-unlock.", "ERROR")
-        return 1
+        return _finish(ctx, cmd, {"error": "another superclean run is in progress (use --force-unlock)"}, 1)
     start = time.time()
     try:
         ctx.log("")
@@ -125,7 +140,7 @@ def main(argv: "list[str] | None" = None) -> int:
         return _finish(ctx, cmd, result, code)
     except Exception as exc:  # noqa: BLE001 - top-level guard, report and exit 3
         ctx.log(f"FATAL: {exc}", "ERROR")
-        return 3
+        return _finish(ctx, cmd, {"error": str(exc)}, 3)
     finally:
         _release_lock(lock)
 

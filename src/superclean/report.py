@@ -10,7 +10,22 @@ import urllib.request
 import psutil
 
 from superclean import config, ollama, orphans, perimeter
+from superclean import procs as procs_mod
 from superclean.util import friendly_size
+
+_SKIP_FSTYPES = {"squashfs", "iso9660", "erofs"}
+
+
+def _keep_partition(part) -> bool:
+    """Real, writable disks only: no snap/squashfs images, loop devices, or ro mounts."""
+    if part.fstype in _SKIP_FSTYPES:
+        return False
+    if part.device.startswith("/dev/loop"):
+        return False
+    opts = set((part.opts or "").split(","))
+    if "ro" in opts:
+        return False
+    return True
 
 
 def _service_up(url: str, timeout: float = 2.0) -> str:
@@ -23,21 +38,21 @@ def _service_up(url: str, timeout: float = 2.0) -> str:
 
 def gather(ctx) -> dict:
     """Collect the full diagnostic into a dict (also used for --json)."""
-    protected = perimeter.build_protected_pids()
+    procs = procs_mod.snapshot()
+    protected = perimeter.build_protected_pids(procs=procs)
     vm = psutil.virtual_memory()
 
     top = []
-    for p in psutil.process_iter(["pid", "name", "memory_info"]):
-        try:
-            rss = p.info["memory_info"].rss if p.info.get("memory_info") else 0
-            top.append({"pid": p.info["pid"], "name": p.info.get("name"), "rss": rss})
-        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
-            continue
+    for pid, info in procs.items():
+        mem = info.get("memory_info")
+        top.append({"pid": pid, "name": info.get("name"), "rss": mem.rss if mem else 0})
     top.sort(key=lambda x: x["rss"], reverse=True)
     top = top[:10]
 
     drives = []
     for part in psutil.disk_partitions(all=False):
+        if not _keep_partition(part):
+            continue
         try:
             usage = psutil.disk_usage(part.mountpoint)
             drives.append(
@@ -51,7 +66,7 @@ def gather(ctx) -> dict:
         except (PermissionError, OSError):
             continue
 
-    services = {"Ollama (11434)": "http://localhost:11434/api/tags"}
+    services = {"Ollama": ollama.base_url() + "/api/tags"}
     services.update(config.services())
     service_health = {name: _service_up(url) for name, url in services.items()}
 
@@ -60,7 +75,7 @@ def gather(ctx) -> dict:
         "platform": sys.platform,
         "os": platform.platform(),
         "protected_count": len(protected),
-        "protected": perimeter.running_protected_summary(),
+        "protected": perimeter.running_protected_summary(procs=procs),
         "memory": {
             "total": vm.total,
             "available": vm.available,
@@ -69,7 +84,7 @@ def gather(ctx) -> dict:
         "top_processes": [
             {**t, "protected": t["pid"] in protected} for t in top
         ],
-        "orphans": orphans.find_orphans(protected),
+        "orphans": orphans.find_orphans(protected, procs=procs),
         "ollama_models": [
             {"name": m["name"], "size_bytes": m["size_bytes"]}
             for m in ollama.loaded_models()
