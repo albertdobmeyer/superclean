@@ -47,7 +47,7 @@ Cleanup escalates through five additive tiers. Each includes everything lighter.
 | `superclean sweep` | 2 | + reclaim live resources: orphan-process kill, RAM/VRAM relief. |
 | `superclean scrub` | 3 | + the standard deep clean: package caches (pip/npm/uv/pnpm/yarn), temp >7 days, targets.conf. |
 | `superclean wipe` | 4 | + heavy and deliberate: browser caches, full temp, Playwright builds. |
-| `superclean nuke` | 5 | + destructive: Docker reset, Windows.old. Requires typing `NUKE`. |
+| `superclean nuke` | 5 | + destructive: Docker reset, Windows.old. Requires typing `NUKE` (Windows, where the destructive actions exist; report-only on macOS/Linux). |
 
 Risk rises with the climb: tiers 1-3 are everyday-safe, `wipe` confirms, `nuke` makes you type the word. Prefer not to pick a tier? `superclean clean` runs a guided cleanup: it diagnoses the machine, proposes each action group with measured sizes (orphans, idle models, caches, old temp, targets.conf), and runs only what you confirm. Utilities: `superclean report`, `superclean ram` (RAM/VRAM relief only, no disk), `superclean protected` (the shield list), `superclean init` (scaffold the config files), and `superclean last` (replay the previous run).
 
@@ -132,7 +132,7 @@ superclean report --json
 superclean sweep --dry-run --json
 ```
 
-Global flags: `--dry-run`, `--yes/-y`, `--i-know` (only with `nuke`), `--quiet/-q`, `--json`, `--no-color`, `--log <path>`, `--force-unlock`. Exit codes: `0` ok, `1` usage/lock, `3` fatal.
+Global flags: `--dry-run`, `--yes/-y`, `--i-know` (only with `nuke`), `--quiet/-q`, `--json`, `--no-color`, `--log <path>`, `--force-unlock`. Exit codes: `0` ok, `1` lock busy, `2` usage, `3` fatal.
 
 ## Logs
 
@@ -150,7 +150,7 @@ superclean deletes files and stops processes. It is built to be conservative, bu
 
 - Use the no-arg report and `--dry-run` first. Always.
 - `wipe` clears browser caches only when the browser is closed.
-- `nuke` is destructive and irreversible. It requires typing `NUKE` by hand unless you explicitly pass `--yes --i-know`.
+- `nuke` is destructive and irreversible on Windows, where it requires typing `NUKE` by hand unless you explicitly pass `--yes --i-know`. On macOS/Linux its destructive layer is report-only in this version.
 - Provided as-is, no warranty. See [LICENSE](LICENSE).
 
 ## Roadmap

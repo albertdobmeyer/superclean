@@ -18,7 +18,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The lockfile is acquired atomically (O_EXCL) and verified for ownership on
   acquire and release; a fatal error under `--json`
   now emits a JSON error envelope instead of nothing; the lock-busy refusal
-  does the same.
+  does the same. A stale-lock reclaimer now re-reads the lockfile immediately before removing it and backs off if another process won the race.
 - Cache purge reports failures honestly (exit-code checked).
 
 ### Added
