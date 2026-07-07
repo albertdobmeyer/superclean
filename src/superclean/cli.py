@@ -25,19 +25,47 @@ from superclean.util import RunContext, data_dir
 TIERS = ["dust", "sweep", "scrub", "wipe", "nuke"]
 COMMANDS = ["report", "protected", "ram", "clean", "init", "last", *TIERS]
 
+_EPILOG = """\
+commands:
+  (none) / report   safe read-only report: shows what could be reclaimed, changes nothing
+  clean             guided cleanup: diagnose, propose actions, confirm each group
+  ram               RAM/VRAM relief only: kill orphaned dev processes, unload idle models
+  protected         show every process name superclean will never touch
+  init              copy the example config files into your user config dir
+  last              show the previous mutating run from the logs
+
+the cleanup ladder (each tier includes everything lighter):
+  dust    tier 1    lightest, always safe: temp scratch older than 14 days
+  sweep   tier 2    + kill orphaned dev processes, RAM/VRAM relief
+  scrub   tier 3    + package caches (pip/npm/uv/pnpm/yarn), temp >7d, targets.conf
+  wipe    tier 4    + heavy: browser caches, full temp (Windows deep-clean backend)
+  nuke    tier 5    + destructive: Docker reset, Windows.old  [type NUKE to confirm]
+
+start here:
+  superclean                    see what is going on (changes nothing)
+  superclean clean              guided cleanup with per-group confirmation
+  superclean sweep --dry-run    preview a tier, then run it for real
+
+config files (scaffold with `superclean init`): protect.conf, targets.conf, services.conf
+logs: one file per day in your user data dir; `superclean last` replays the newest run
+"""
+
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="superclean",
         description="Agentic-dev garbage collector: reclaim RAM, VRAM, and disk "
         "left by parallel dev work, without killing your active tools.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "command",
         nargs="?",
         default="report",
         choices=COMMANDS,
-        help="what to run (default: report)",
+        metavar="command",
+        help="what to run (default: report); every command is described below",
     )
     p.add_argument("--dry-run", action="store_true", help="show what would happen; change nothing")
     p.add_argument("--yes", "-y", action="store_true", help="skip y/N prompts")

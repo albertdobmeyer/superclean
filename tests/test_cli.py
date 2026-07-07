@@ -121,3 +121,12 @@ def test_init_json_envelope(tmp_path, monkeypatch, capsys):
         "targets.conf": "created",
         "services.conf": "created",
     }
+
+
+def test_help_documents_ladder_and_commands():
+    help_text = cli.build_parser().format_help()
+    for needle in ("dust", "sweep", "scrub", "wipe", "nuke", "clean", "init", "last",
+                   "cleanup ladder", "start here", "--dry-run", "NUKE"):
+        assert needle in help_text, needle
+    # metavar hides the raw choices dump from usage and help body
+    assert "{report,protected,ram" not in help_text
