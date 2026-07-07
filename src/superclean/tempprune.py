@@ -74,6 +74,13 @@ def prune_temp(ctx, days: int = 7) -> dict:
     return stats
 
 
+def preview_temp(days: int = 7) -> dict:
+    """Measure what prune_temp would reclaim, silently. Read-only."""
+    return _age_out(
+        Path(tempfile.gettempdir()), days, _DryProbe(None), protect_session_dirs=True
+    )
+
+
 def prune_targets(ctx) -> list[dict]:
     """Age out each folder configured in targets.conf (confirm unless --yes)."""
     ctx.log("")

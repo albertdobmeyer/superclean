@@ -19,25 +19,53 @@ import time
 
 import psutil
 
-from superclean import __version__, platform_backend, report as report_mod
+from superclean import __version__, clean as clean_mod, config, platform_backend, report as report_mod
 from superclean.util import RunContext, data_dir
 
 TIERS = ["dust", "sweep", "scrub", "wipe", "nuke"]
-COMMANDS = ["report", "protected", "ram", *TIERS]
+COMMANDS = ["report", "protected", "ram", "clean", "init", "last", *TIERS]
+
+_EPILOG = """\
+commands:
+  (none) / report   safe read-only report: shows what could be reclaimed, changes nothing
+  clean             guided cleanup: diagnose, propose actions, confirm each group
+  ram               RAM/VRAM relief only: kill orphaned dev processes, unload idle models
+  protected         show every process name superclean will never touch
+  init              copy the example config files into your user config dir
+  last              show the previous mutating run from the logs
+
+the cleanup ladder (each tier includes everything lighter):
+  dust    tier 1    lightest, always safe: temp scratch older than 14 days
+  sweep   tier 2    + kill orphaned dev processes, RAM/VRAM relief
+  scrub   tier 3    + package caches (pip/npm/uv/pnpm/yarn), temp >7d, targets.conf
+  wipe    tier 4    + heavy: browser caches, full temp (Windows deep-clean backend)
+  nuke    tier 5    + destructive: Docker reset, Windows.old (Windows)  [type NUKE to confirm]
+
+start here:
+  superclean                    see what is going on (changes nothing)
+  superclean clean              guided cleanup with per-group confirmation
+  superclean sweep --dry-run    preview a tier, then run it for real
+
+config files (scaffold with `superclean init`): protect.conf, targets.conf, services.conf
+logs: one file per day in your user data dir; `superclean last` replays the newest run
+"""
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="superclean",
-        description="Agentic-dev garbage collector: reclaim RAM, VRAM, and disk "
+        description="Agentic-dev garbage collector: reclaim RAM, VRAM, and disk\n"
         "left by parallel dev work, without killing your active tools.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "command",
         nargs="?",
         default="report",
         choices=COMMANDS,
-        help="what to run (default: report)",
+        metavar="command",
+        help="what to run (default: report); every command is described below",
     )
     p.add_argument("--dry-run", action="store_true", help="show what would happen; change nothing")
     p.add_argument("--yes", "-y", action="store_true", help="skip y/N prompts")
@@ -111,12 +139,29 @@ def main(argv: "list[str] | None" = None) -> int:
     cmd = args.command
 
     # Read-only commands: no lock needed.
-    if cmd == "report":
-        result = report_mod.run(ctx)
-        return _finish(ctx, cmd, result, 0)
-    if cmd == "protected":
-        result = report_mod.list_protected(ctx)
-        return _finish(ctx, cmd, result, 0)
+    try:
+        if cmd == "report":
+            result = report_mod.run(ctx)
+            return _finish(ctx, cmd, result, 0)
+        if cmd == "protected":
+            result = report_mod.list_protected(ctx)
+            return _finish(ctx, cmd, result, 0)
+        if cmd == "init":
+            result = config.init_user_conf()
+            ctx.log(f"Config dir: {result['dir']}")
+            levels = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}
+            for name, status in result["files"].items():
+                ctx.log(f"  {name:<15} {status}", levels.get(status, "ERROR"))
+            failed = "error" in result or "write-failed" in result["files"].values()
+            if failed and result.get("error"):
+                ctx.log(f"  {result['error']}", "ERROR")
+            return _finish(ctx, cmd, result, 3 if failed else 0)
+        if cmd == "last":
+            result = report_mod.last_run(ctx)
+            return _finish(ctx, cmd, result, 0)
+    except Exception as exc:  # noqa: BLE001 - top-level guard, report and exit 3
+        ctx.log(f"FATAL: {exc}", "ERROR")
+        return _finish(ctx, cmd, {"error": str(exc)}, 3)
 
     # Mutating commands (ram + tiers): acquire the single lock.
     lock = _acquire_lock(ctx)
@@ -130,6 +175,8 @@ def main(argv: "list[str] | None" = None) -> int:
         ctx.log(f"Command: {cmd}   DryRun: {ctx.dry_run}   PID: {os.getpid()}")
         if cmd == "ram":
             result = platform_backend.run_ram(ctx)
+        elif cmd == "clean":
+            result = clean_mod.run(ctx)
         else:
             result = platform_backend.run_tier(ctx, cmd)
         elapsed = time.time() - start

@@ -27,6 +27,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Measured reclaim: orphan kills report RSS freed, cache purges report bytes
   freed, and every mutating run ends with a memory/disk total.
 - `OLLAMA_HOST` is honored for all Ollama probes and unloads.
+- `superclean -h` now explains the full ladder, every utility command, the
+  config files, and worked examples (was a bare argparse choices list).
+- The no-arg report ends with a one-line pointer to `-h` and `clean`.
+- New `superclean clean`: guided cleanup that diagnoses the machine,
+  proposes each action group (orphans, idle models, caches, old temp,
+  targets.conf) with measured sizes, and runs only what you confirm.
+  `--yes` approves every group; it never enters wipe/nuke territory.
+- New `superclean init`: copies the example config files into your user
+  config dir (never overwrites existing files).
+- New `superclean last`: replays the previous mutating run from the logs.
 
 ### Changed
 - JSON shape: `caches` entries are now `{"ok", "freed_bytes"}` objects (were

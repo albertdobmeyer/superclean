@@ -14,7 +14,7 @@ from superclean.util import friendly_size
 _RANK = {"dust": 1, "sweep": 2, "scrub": 3, "wipe": 4, "nuke": 5}
 
 
-def _totals(results: dict) -> dict:
+def totals(results: dict) -> dict:
     """Aggregate measured reclaim across all steps of a run."""
     ram = 0
     ram += (results.get("orphans") or {}).get("reclaimed_rss", 0)
@@ -28,6 +28,9 @@ def _totals(results: dict) -> dict:
         if isinstance(v, dict):
             disk += v.get("freed_bytes") or 0
     return {"ram_bytes": ram, "disk_bytes": disk}
+
+
+_totals = totals
 
 
 def _ram_relief(ctx) -> dict:

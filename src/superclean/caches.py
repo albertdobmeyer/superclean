@@ -105,6 +105,34 @@ def _run(ctx, label: str, args: list[str]) -> bool:
     return True
 
 
+# (label, exe, cache-dir query args, clean args). pip is handled separately
+# because it runs per-interpreter.
+_TOOLS = (
+    ("npm", "npm", ["config", "get", "cache"], ["cache", "clean", "--force"]),
+    ("uv", "uv", ["cache", "dir"], ["cache", "clean"]),
+    ("pnpm", "pnpm", ["store", "path"], ["store", "prune"]),
+    ("yarn", "yarn", ["cache", "dir"], ["cache", "clean"]),
+)
+
+
+def sizes() -> dict:
+    """label -> measurable cache bytes for tools on PATH. Read-only preview."""
+    out: dict = {}
+    pythons = _discover_pythons()
+    if pythons:
+        size = _dir_size(_query_cache_dir([pythons[0], "-m", "pip", "cache", "dir"]))
+        if size is not None:
+            out["pip"] = size
+    for label, exe, dir_args_tail, _clean_args in _TOOLS:
+        path = shutil.which(exe)
+        if not path:
+            continue
+        size = _dir_size(_query_cache_dir([path, *dir_args_tail]))
+        if size is not None:
+            out[label] = size
+    return out
+
+
 def _purge_one(ctx, label: str, dir_args: "list[str] | None", clean_args: list[str]) -> dict:
     """Measure -> purge -> re-measure a single tool. Honors dry-run."""
     cache_dir = _query_cache_dir(dir_args) if dir_args else None
@@ -149,12 +177,7 @@ def purge(ctx) -> dict:
         freed += one["freed_bytes"]
     results["pip"] = {"ok": ok_all, "freed_bytes": freed}
 
-    for label, exe, dir_args_tail, clean_args_tail in (
-        ("npm", "npm", ["config", "get", "cache"], ["cache", "clean", "--force"]),
-        ("uv", "uv", ["cache", "dir"], ["cache", "clean"]),
-        ("pnpm", "pnpm", ["store", "path"], ["store", "prune"]),
-        ("yarn", "yarn", ["cache", "dir"], ["cache", "clean"]),
-    ):
+    for label, exe, dir_args_tail, clean_args_tail in _TOOLS:
         ctx.log("")
         ctx.log(f"== {label} cache clean ==", "HEAD")
         path = shutil.which(exe)

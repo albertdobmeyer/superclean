@@ -120,3 +120,39 @@ def services() -> dict[str, str]:
         if len(parts) == 2 and parts[0].strip() and parts[1].strip():
             out[parts[0].strip()] = parts[1].strip()
     return out
+
+
+def init_user_conf() -> dict:
+    """Copy the example conf files into the per-user config dir.
+
+    Never overwrites: existing files are reported as "exists" and left
+    untouched. Examples come from the bundled wheel dir, falling back to a
+    dev checkout's repo root. Filesystem failures are reported, not raised.
+    """
+    dest = _user_config_dir()
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return {"dir": str(dest), "files": {}, "error": str(exc)}
+    examples = (_bundled_conf_dir(), _repo_root_dir())
+    files: dict = {}
+    for name in _CONF_NAMES:
+        target = dest / name
+        if target.exists():
+            files[name] = "exists"
+            continue
+        src = None
+        for c in examples:
+            if (c / name).exists():
+                src = c / name
+                break
+        if src is None:
+            files[name] = "missing-example"
+            continue
+        try:
+            target.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            files[name] = "write-failed"
+            continue
+        files[name] = "created"
+    return {"dir": str(dest), "files": files}
