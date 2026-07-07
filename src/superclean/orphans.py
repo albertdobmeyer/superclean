@@ -25,8 +25,49 @@ CANDIDATE_NAMES = {
     "next-server", "webpack", "pnpm", "yarn", "rollup", "bun", "deno",
 }
 
+# Browsers are orphan candidates ONLY in headless (Playwright/Puppeteer) form;
+# a user's real browser window never matches because it lacks --headless.
+HEADLESS_BROWSER_NAMES = {
+    "chrome", "chromium", "chromium-browser", "headless_shell", "firefox", "msedge",
+}
+
 _MIN_AGE_SECONDS = 60
 _LAUNCHER_RE = re.compile(r"(?i)\b(uvx|pipx|superclean)\b")
+
+
+def _is_candidate(name: "str | None", cmdline: str) -> bool:
+    n = _norm(name)
+    if n in CANDIDATE_NAMES:
+        return True
+    return n in HEADLESS_BROWSER_NAMES and "--headless" in cmdline
+
+
+def _parent_gone(info: dict, procs: "dict[int, dict]") -> bool:
+    """True when this process's original parent is no longer there.
+
+    Signals: classic init/missing-parent/PID-reuse, plus the modern-Linux
+    case where an orphan is reparented to the user's `systemd --user`
+    subreaper (name systemd, not PID 1, same user). Deliberate user services
+    that should survive belong in protect.conf.
+    """
+    ppid = info.get("ppid")
+    if ppid is None or ppid in (0, 1):
+        return True
+    parent = procs.get(ppid)
+    if parent is None:
+        return True
+    p_ctime = parent.get("create_time")
+    ctime = info.get("create_time")
+    if p_ctime is not None and ctime is not None and p_ctime > ctime:
+        return True  # parent PID was reused after this process started
+    if (
+        _norm(parent.get("name")) == "systemd"
+        and ppid != 1
+        and parent.get("username")
+        and parent.get("username") == info.get("username")
+    ):
+        return True
+    return False
 
 
 def find_orphans(protected: set[int], procs: "dict[int, dict] | None" = None) -> list[dict]:
@@ -36,7 +77,8 @@ def find_orphans(protected: set[int], procs: "dict[int, dict] | None" = None) ->
 
     orphans = []
     for pid, info in procs.items():
-        if _norm(info.get("name")) not in CANDIDATE_NAMES:
+        cmdline = " ".join(info.get("cmdline") or [])
+        if not _is_candidate(info.get("name"), cmdline):
             continue
         if pid in protected or pid == os.getpid():
             continue
@@ -45,30 +87,20 @@ def find_orphans(protected: set[int], procs: "dict[int, dict] | None" = None) ->
         if ctime is None or (now - ctime) < _MIN_AGE_SECONDS:
             continue
 
-        cmdline = " ".join(info.get("cmdline") or [])
         if _LAUNCHER_RE.search(cmdline):
             continue
 
-        ppid = info.get("ppid")
-        parent_gone = False
-        if ppid in (0, 1) or ppid is None:
-            parent_gone = True
-        elif ppid not in procs:
-            parent_gone = True
-        else:
-            parent_ctime = procs[ppid].get("create_time")
-            if parent_ctime is not None and parent_ctime > ctime:
-                parent_gone = True  # parent PID was reused after our process started
-
-        if parent_gone:
+        if _parent_gone(info, procs):
+            mem = info.get("memory_info")
             short = cmdline if len(cmdline) <= 140 else cmdline[:140] + "..."
             orphans.append(
                 {
                     "pid": pid,
                     "name": info.get("name"),
                     "create_time": ctime,
-                    "ppid": ppid,
+                    "ppid": info.get("ppid"),
                     "cmdline": short,
+                    "rss": mem.rss if mem else 0,
                 }
             )
     return orphans
