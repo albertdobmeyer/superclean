@@ -57,13 +57,19 @@ def run(ctx) -> dict:
     ctx.log("")
     ctx.log("== 3. Package-manager caches ==", "HEAD")
     cache_sizes = caches.sizes()
-    cache_total = sum(cache_sizes.values())
-    if cache_total == 0:
-        ctx.log("  Nothing measurable to purge.", "OK")
+    known_total = sum(v for v in cache_sizes.values() if v)
+    if not cache_sizes:
+        ctx.log("  No package-manager caches found.", "OK")
     else:
         for label, size in cache_sizes.items():
-            ctx.log(f"    {label:<8} ~{friendly_size(size)}")
-        if ctx.confirm(f"  Purge these caches (~{friendly_size(cache_total)})?"):
+            shown = f"~{friendly_size(size)}" if size is not None else "size unknown (large?)"
+            ctx.log(f"    {label:<8} {shown}")
+        prompt = (
+            f"  Purge these caches (~{friendly_size(known_total)} measured)?"
+            if known_total
+            else "  Purge these caches?"
+        )
+        if ctx.confirm(prompt):
             results["caches"] = caches.purge(ctx)
         else:
             ctx.log("  Skipped.", "SKIP")

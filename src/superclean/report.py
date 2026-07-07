@@ -9,8 +9,9 @@ import urllib.request
 
 import psutil
 
-from superclean import config, ollama, orphans, perimeter
-from superclean import procs as procs_mod
+from superclean import (
+    config, gpu, ollama, orphans, perimeter, ports as ports_mod, procs as procs_mod,
+)
 from superclean.util import data_dir, friendly_size
 
 _SKIP_FSTYPES = {"squashfs", "iso9660", "erofs"}
@@ -70,6 +71,12 @@ def gather(ctx) -> dict:
     services.update(config.services())
     service_health = {name: _service_up(url) for name, url in services.items()}
 
+    found_orphans = orphans.find_orphans(protected, procs=procs)
+    orphan_pids = {o["pid"] for o in found_orphans}
+    port_list = ports_mod.listening_ports(procs, protected)
+    for p in port_list:
+        p["orphan"] = p["pid"] is not None and p["pid"] in orphan_pids
+
     return {
         "version": __import__("superclean").__version__,
         "platform": sys.platform,
@@ -81,10 +88,12 @@ def gather(ctx) -> dict:
             "available": vm.available,
             "percent": vm.percent,
         },
+        "gpus": gpu.gpus(),
         "top_processes": [
             {**t, "protected": t["pid"] in protected} for t in top
         ],
-        "orphans": orphans.find_orphans(protected, procs=procs),
+        "orphans": found_orphans,
+        "ports": port_list,
         "ollama_models": [
             {"name": m["name"], "size_bytes": m["size_bytes"]}
             for m in ollama.loaded_models()
@@ -119,6 +128,18 @@ def run(ctx) -> dict:
     )
 
     ctx.log("")
+    ctx.log("== GPU / VRAM ==", "HEAD")
+    if not data["gpus"]:
+        ctx.log("  No GPU VRAM info discoverable on this system.", "SKIP")
+    else:
+        for g in data["gpus"]:
+            pct = (g["vram_used"] / g["vram_total"] * 100) if g["vram_total"] else 0
+            ctx.log(
+                f"  {g['name']:<28} {friendly_size(g['vram_used'])} used of "
+                f"{friendly_size(g['vram_total'])} ({pct:.0f}%)"
+            )
+
+    ctx.log("")
     ctx.log("== TOP 10 PROCESSES BY RAM ==", "HEAD")
     for t in data["top_processes"]:
         tag = "[PROT]" if t["protected"] else "      "
@@ -132,6 +153,16 @@ def run(ctx) -> dict:
         ctx.log(f"  Found {len(data['orphans'])} orphan(s):", "WARN")
         for o in data["orphans"]:
             ctx.log(f"    PID {o['pid']:<7} {str(o['name']):<12} {o['cmdline']}")
+
+    ctx.log("")
+    ctx.log("== LISTENING PORTS ==", "HEAD")
+    if not data["ports"]:
+        ctx.log("  None visible (or no permission to inspect).", "OK")
+    else:
+        for p in data["ports"]:
+            owner = f"{str(p['name'] or '?'):<15} PID {p['pid'] or '?'}"
+            tag = " [ORPHAN]" if p["orphan"] else (" [PROT]" if p["protected"] else "")
+            ctx.log(f"  :{p['port']:<6} {owner}{tag}", "WARN" if p["orphan"] else "INFO")
 
     ctx.log("")
     ctx.log("== OLLAMA ==", "HEAD")
@@ -188,7 +219,11 @@ def list_protected(ctx) -> dict:
 
 
 def last_run(ctx) -> dict:
-    """The `last` subcommand: replay the newest mutating-run block."""
+    """The `last` subcommand: replay the newest mutating-run block.
+
+    Only day files in the default data dir are scanned; runs recorded via a
+    --log override live outside it and are not visible here.
+    """
     logs = sorted(data_dir().glob("superclean-*.log"), reverse=True)
     for path in logs:
         try:

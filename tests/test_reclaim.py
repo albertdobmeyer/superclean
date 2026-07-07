@@ -105,3 +105,22 @@ def test_scrub_runs_single_temp_pass(tmp_path, monkeypatch):
     calls.clear()
     posix.run_tier(ctx, "dust")
     assert calls == [14]
+
+
+def test_sizes_reports_unmeasured_existing_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(caches, "_discover_pythons", lambda: [])
+    monkeypatch.setattr(
+        caches.shutil, "which", lambda exe: "/usr/bin/pnpm" if exe == "pnpm" else None
+    )
+    monkeypatch.setattr(caches, "_query_cache_dir", lambda args: tmp_path)  # exists
+    monkeypatch.setattr(caches, "_dir_size", lambda root, budget_seconds=10.0: None)  # timeout
+    assert caches.sizes() == {"pnpm": None}
+
+
+def test_sizes_omits_missing_cache_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr(caches, "_discover_pythons", lambda: [])
+    monkeypatch.setattr(
+        caches.shutil, "which", lambda exe: "/usr/bin/pnpm" if exe == "pnpm" else None
+    )
+    monkeypatch.setattr(caches, "_query_cache_dir", lambda args: tmp_path / "nope")
+    assert caches.sizes() == {}

@@ -70,3 +70,15 @@ def test_clean_with_nothing_to_do(tmp_path, monkeypatch):
     result = clean.run(ctx)
     assert calls == ["targets"]
     assert result["reclaimed"] == {"ram_bytes": 0, "disk_bytes": 0}
+
+
+def test_unmeasured_cache_still_offered(tmp_path, monkeypatch):
+    calls = []
+    _stub(monkeypatch, calls, [], [])
+    monkeypatch.setattr(clean.caches, "sizes", lambda: {"pnpm": None})
+    monkeypatch.setattr(
+        clean.caches, "purge",
+        lambda ctx: (calls.append("purge"), {"pnpm": {"ok": True, "freed_bytes": 0}})[1])
+    ctx = RunContext(yes=True, quiet=True, log_path=tmp_path / "t.log")
+    clean.run(ctx)
+    assert "purge" in calls  # size-unknown must not hide the group
