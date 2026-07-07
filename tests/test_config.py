@@ -68,3 +68,20 @@ def test_init_scaffolds_and_never_overwrites(tmp_path, monkeypatch):
     result = config.init_user_conf()
     assert result["files"]["protect.conf"] == "exists"
     assert (user / "protect.conf").read_text() == "my-edits\n"
+
+
+def test_init_missing_examples(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "_user_config_dir", lambda: tmp_path / "user")
+    monkeypatch.setattr(config, "_bundled_conf_dir", lambda: tmp_path / "no-bundled")
+    monkeypatch.setattr(config, "_repo_root_dir", lambda: tmp_path / "no-repo")
+    result = config.init_user_conf()
+    assert set(result["files"].values()) == {"missing-example"}
+
+
+def test_init_reports_unwritable_dest(tmp_path, monkeypatch):
+    blocker = tmp_path / "user"
+    blocker.write_text("a file where the config dir should go")
+    monkeypatch.setattr(config, "_user_config_dir", lambda: blocker)
+    result = config.init_user_conf()
+    assert result["files"] == {}
+    assert "error" in result

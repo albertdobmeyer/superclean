@@ -105,9 +105,19 @@ def test_json_lock_busy_emits_error_envelope(tmp_path, monkeypatch, capsys):
 def test_init_json_envelope(tmp_path, monkeypatch, capsys):
     from superclean import config
 
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    for name in ("protect.conf", "targets.conf", "services.conf"):
+        (bundled / name).write_text(f"# example {name}\n")
     monkeypatch.setattr(config, "_user_config_dir", lambda: tmp_path / "user")
+    monkeypatch.setattr(config, "_bundled_conf_dir", lambda: bundled)
+    monkeypatch.setattr(config, "_repo_root_dir", lambda: tmp_path / "no-repo")
     code = cli.main(["init", "--json", "--log", str(tmp_path / "t.log")])
     assert code == 0
     data = json.loads(capsys.readouterr().out)
     assert data["command"] == "init"
-    assert set(data["result"]["files"]) == {"protect.conf", "targets.conf", "services.conf"}
+    assert data["result"]["files"] == {
+        "protect.conf": "created",
+        "targets.conf": "created",
+        "services.conf": "created",
+    }

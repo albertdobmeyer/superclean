@@ -120,10 +120,13 @@ def main(argv: "list[str] | None" = None) -> int:
     if cmd == "init":
         result = config.init_user_conf()
         ctx.log(f"Config dir: {result['dir']}")
+        levels = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}
         for name, status in result["files"].items():
-            level = {"created": "OK", "exists": "SKIP", "missing-example": "WARN"}[status]
-            ctx.log(f"  {name:<15} {status}", level)
-        return _finish(ctx, cmd, result, 0)
+            ctx.log(f"  {name:<15} {status}", levels.get(status, "ERROR"))
+        failed = "error" in result or "write-failed" in result["files"].values()
+        if failed and result.get("error"):
+            ctx.log(f"  {result['error']}", "ERROR")
+        return _finish(ctx, cmd, result, 3 if failed else 0)
 
     # Mutating commands (ram + tiers): acquire the single lock.
     lock = _acquire_lock(ctx)
