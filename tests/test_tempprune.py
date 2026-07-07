@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import socket
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -40,16 +42,22 @@ def test_fresh_file_is_kept(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="unix sockets")
-def test_socket_is_never_touched(tmp_path):
-    sock_path = tmp_path / "agent.sock"
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+def test_socket_is_never_touched():
+    # A short root under /tmp: macOS caps AF_UNIX sun_path at ~104 bytes,
+    # which pytest's deep tmp_path can exceed.
+    root = Path(tempfile.mkdtemp(prefix="sc-", dir="/tmp"))
     try:
-        s.bind(str(sock_path))
-        _make_old(sock_path)
-        stats = _age_out(tmp_path, days=7, ctx=_Ctx())
-        assert stats["files"] == 0
+        sock_path = root / "agent.sock"
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            s.bind(str(sock_path))
+            _make_old(sock_path)
+            stats = _age_out(root, days=7, ctx=_Ctx())
+            assert stats["files"] == 0
+        finally:
+            s.close()
     finally:
-        s.close()
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def test_symlink_is_never_touched(tmp_path):
