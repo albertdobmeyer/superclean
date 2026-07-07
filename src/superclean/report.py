@@ -11,7 +11,7 @@ import psutil
 
 from superclean import config, ollama, orphans, perimeter
 from superclean import procs as procs_mod
-from superclean.util import friendly_size
+from superclean.util import data_dir, friendly_size
 
 _SKIP_FSTYPES = {"squashfs", "iso9660", "erofs"}
 
@@ -179,3 +179,29 @@ def list_protected(ctx) -> dict:
     ctx.log("")
     ctx.log(f"protect.conf additions: {', '.join(extra) if extra else '(none)'}")
     return {"running": summary, "conf_additions": extra}
+
+
+def last_run(ctx) -> dict:
+    """The `last` subcommand: replay the newest mutating-run block."""
+    logs = sorted(data_dir().glob("superclean-*.log"), reverse=True)
+    for path in logs:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        starts = [i for i, ln in enumerate(lines) if "RUN START" in ln]
+        if not starts:
+            continue
+        block = []
+        for ln in lines[starts[-1]:]:
+            block.append(ln)
+            if "Elapsed:" in ln:
+                break
+        if not ctx.json:
+            ctx.section("SUPERCLEAN -- LAST RUN")
+            ctx.log(f"  from {path}")
+            for ln in block:
+                ctx.log(f"  {ln}")
+        return {"log": str(path), "lines": block}
+    ctx.log("No previous run found in the logs.", "WARN")
+    return {"log": None, "lines": []}

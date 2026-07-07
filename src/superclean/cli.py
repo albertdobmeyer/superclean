@@ -23,7 +23,7 @@ from superclean import __version__, config, platform_backend, report as report_m
 from superclean.util import RunContext, data_dir
 
 TIERS = ["dust", "sweep", "scrub", "wipe", "nuke"]
-COMMANDS = ["report", "protected", "ram", "init", *TIERS]
+COMMANDS = ["report", "protected", "ram", "init", "last", *TIERS]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -127,6 +127,9 @@ def main(argv: "list[str] | None" = None) -> int:
         if failed and result.get("error"):
             ctx.log(f"  {result['error']}", "ERROR")
         return _finish(ctx, cmd, result, 3 if failed else 0)
+    if cmd == "last":
+        result = report_mod.last_run(ctx)
+        return _finish(ctx, cmd, result, 0)
 
     # Mutating commands (ram + tiers): acquire the single lock.
     lock = _acquire_lock(ctx)
