@@ -1,0 +1,53 @@
+"""Lock exclusivity and the JSON contract on fatal errors."""
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+
+from superclean import cli
+
+
+def _ctx(force_unlock=False):
+    return SimpleNamespace(force_unlock=force_unlock)
+
+
+def test_lock_is_exclusive_and_releasable(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    lock = cli._acquire_lock(_ctx())
+    assert lock is not None
+    assert cli._acquire_lock(_ctx()) is None  # held by a live pid (ours)
+    cli._release_lock(lock)
+    lock2 = cli._acquire_lock(_ctx())
+    assert lock2 is not None
+    cli._release_lock(lock2)
+
+
+def test_stale_lock_is_reclaimed(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    (tmp_path / "superclean.lock").write_text("999999999")  # dead pid
+    lock = cli._acquire_lock(_ctx())
+    assert lock is not None
+    cli._release_lock(lock)
+
+
+def test_garbage_lock_is_reclaimed(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    (tmp_path / "superclean.lock").write_text("not-a-pid")
+    lock = cli._acquire_lock(_ctx())
+    assert lock is not None
+    cli._release_lock(lock)
+
+
+def test_json_fatal_emits_error_envelope(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+
+    def boom(ctx, tier):
+        raise RuntimeError("backend exploded")
+
+    monkeypatch.setattr(cli.platform_backend, "run_tier", boom)
+    code = cli.main(["sweep", "--json", "--log", str(tmp_path / "t.log")])
+    assert code == 3
+    out = capsys.readouterr().out
+    data = json.loads(out)  # must be exactly one valid JSON document
+    assert data["command"] == "sweep"
+    assert "backend exploded" in data["result"]["error"]
