@@ -9,7 +9,7 @@ import urllib.request
 
 import psutil
 
-from superclean import config, ollama, orphans, perimeter
+from superclean import config, ollama, orphans, perimeter, ports as ports_mod
 from superclean import procs as procs_mod
 from superclean.util import data_dir, friendly_size
 
@@ -70,6 +70,12 @@ def gather(ctx) -> dict:
     services.update(config.services())
     service_health = {name: _service_up(url) for name, url in services.items()}
 
+    found_orphans = orphans.find_orphans(protected, procs=procs)
+    orphan_pids = {o["pid"] for o in found_orphans}
+    port_list = ports_mod.listening_ports(procs, protected)
+    for p in port_list:
+        p["orphan"] = p["pid"] is not None and p["pid"] in orphan_pids
+
     return {
         "version": __import__("superclean").__version__,
         "platform": sys.platform,
@@ -84,7 +90,8 @@ def gather(ctx) -> dict:
         "top_processes": [
             {**t, "protected": t["pid"] in protected} for t in top
         ],
-        "orphans": orphans.find_orphans(protected, procs=procs),
+        "orphans": found_orphans,
+        "ports": port_list,
         "ollama_models": [
             {"name": m["name"], "size_bytes": m["size_bytes"]}
             for m in ollama.loaded_models()
@@ -132,6 +139,16 @@ def run(ctx) -> dict:
         ctx.log(f"  Found {len(data['orphans'])} orphan(s):", "WARN")
         for o in data["orphans"]:
             ctx.log(f"    PID {o['pid']:<7} {str(o['name']):<12} {o['cmdline']}")
+
+    ctx.log("")
+    ctx.log("== LISTENING PORTS ==", "HEAD")
+    if not data["ports"]:
+        ctx.log("  None visible (or no permission to inspect).", "OK")
+    else:
+        for p in data["ports"]:
+            owner = f"{str(p['name'] or '?'):<15} PID {p['pid'] or '?'}"
+            tag = " [ORPHAN]" if p["orphan"] else (" [PROT]" if p["protected"] else "")
+            ctx.log(f"  :{p['port']:<6} {owner}{tag}", "WARN" if p["orphan"] else "INFO")
 
     ctx.log("")
     ctx.log("== OLLAMA ==", "HEAD")
