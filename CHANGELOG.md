@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.0] - unreleased
+## [2.1.0] - 2026-07-07
 
 ### Fixed
 - Temp age-out ladder was inverted (dust pruned harder than scrub); dust now
@@ -63,7 +63,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Single shared process snapshot per run (report previously swept all
   processes about four times).
 
-## [2.0.0] - unreleased
+## [2.0.0] - 2026-06-16
 
 Cross-platform rewrite. superclean is now a portable Python CLI (Windows, macOS,
 Linux) installable with `uvx` / `pipx`, while the proven PowerShell tool becomes

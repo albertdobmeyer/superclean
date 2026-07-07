@@ -5,4 +5,4 @@ and disk left behind by heavy parallel development, without ever killing the
 user's active editors, terminals, or AI tools.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
