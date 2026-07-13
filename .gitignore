@@ -34,3 +34,7 @@ Thumbs.db
 .vs/
 .idea/
 .vscode/
+
+# PyInstaller local build output (CI builds the released binary)
+dist-exe/
+build-exe/

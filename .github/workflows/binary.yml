@@ -1,0 +1,74 @@
+name: binary
+
+# Builds the standalone Windows superclean.exe and attaches it to a release.
+#
+# The binary exists for the package managers that cannot install a Python wheel
+# (winget, scoop). It is built HERE, in CI, from a tagged commit, rather than
+# uploaded from a developer machine: an executable that kills processes and
+# deletes files should have a provenance trail, not a "trust me" story.
+#
+# Runs automatically when a release is published, and can be re-run by hand
+# against an existing tag via workflow_dispatch.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and attach to (e.g. v2.1.1)"
+        required: true
+
+permissions:
+  contents: write # required to upload release assets
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install package and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pyinstaller
+
+      - name: Freeze
+        run: pyinstaller packaging/superclean.spec --noconfirm
+
+      - name: Smoke the frozen binary
+        shell: pwsh
+        run: |
+          $exe = "dist\superclean.exe"
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "--version failed" }
+          # report and protected between them prove the frozen bundle can still
+          # find its conf files and its bundled PowerShell backend, which is the
+          # thing a broken --add-data path silently breaks at runtime.
+          & $exe report --json    | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "report failed" }
+          & $exe protected --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "protected failed" }
+          & $exe init --json      | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "init failed" }
+
+      - name: Name, hash, and attach
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.release.tag_name || inputs.tag }}"
+          $version = $tag.TrimStart("v")
+          $asset = "superclean-$version-windows-x64.exe"
+          Copy-Item dist\superclean.exe $asset
+          $sha = (Get-FileHash $asset -Algorithm SHA256).Hash
+          "$sha  $asset" | Out-File "$asset.sha256" -Encoding ascii
+          Write-Host "SHA256: $sha"
+          gh release upload $tag $asset "$asset.sha256" --clobber
