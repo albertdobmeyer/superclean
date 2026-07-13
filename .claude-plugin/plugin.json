@@ -1,7 +1,7 @@
 {
   "name": "superclean",
   "displayName": "superclean",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Reclaim the RAM, VRAM, and disk that parallel AI coding agents leak, without killing your editors, terminals, or the Claude Code session running the command.",
   "author": {
     "name": "Albert Dobmeyer",

@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-07-13
+
+### Added
+- **superclean is now a Claude Code plugin.** The repo is its own marketplace, so
+  `/plugin marketplace add albertdobmeyer/superclean` then
+  `/plugin install superclean@superclean` is the whole install. It provides
+  `/superclean:report` (read-only diagnosis, explained in prose; Claude may invoke it
+  when you say the machine is slow) and `/superclean:clean` (dry-run, show measured
+  sizes, act only on confirmation). `clean` is deliberately not model-invocable: a
+  skill that kills processes has no business firing on the model's initiative.
+- **A standalone Windows executable**, attached to each release and built in CI from
+  the tagged commit rather than uploaded from a developer machine. It exists for the
+  package managers that cannot install a Python wheel. `uvx` and `pipx` remain the
+  recommended install.
+
+### Changed
+- The README now shows the safety perimeter instead of asserting it: why `pkill -f node`
+  is not a cleanup command, the four pillars, and real `superclean protected` output.
+
 ## [2.1.1] - 2026-07-13
 
 ### Fixed
