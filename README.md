@@ -55,7 +55,45 @@ The report also shows listening TCP ports with their owning process (ports held 
 
 ## The safety promise
 
-superclean **never** kills your live tools. A generous baseline of editors, terminals, shells, and AI tools is protected by name, together with every one of their child processes, the entire ancestor chain of the running session, and any process whose command line shows it belongs to an AI agent. The tool also protects its own interpreter, so it can never flag itself. When it is unsure about a process, it leaves it alone. You add your own names in `protect.conf`.
+The hard part of this problem is not finding the garbage. It is that the garbage is
+indistinguishable from the things keeping you alive: your orphaned dev server and the
+language server your editor needs are both, to the OS, just `node`. This is why
+`pkill -f node` is not a cleanup command. It kills the dev server, and also your
+editor's language servers, your MCP servers, and the runtime of the AI agent that ran it.
+
+So superclean's real work is deciding what **not** to touch. Run `superclean protected`
+and it shows you. Here is that list on the machine this was written on:
+
+```
+226 processes protected
+  cursor            45      windowsterminal    2
+  cmd               31      ollama             1
+  claude            19      powershell         1
+  bash              17      superclean         1
+```
+
+Every one of those is something a naive cleanup would have killed, including the 19
+processes belonging to the Claude Code session that ran the command.
+
+The perimeter has four pillars and is **fail-closed** - anything it cannot confidently
+classify is treated as protected, never as a target:
+
+1. **By name** - editors, terminals, multiplexers, interactive shells, AI coding tools,
+   the Ollama daemon. Add your own in `protect.conf`.
+2. **By command line** - a `node` process is not garbage if its cmdline shows it is an
+   MCP server or an agent runtime, whatever its name says.
+3. **By descent** - every child of anything protected, transitively. Killing your
+   editor's grandchild breaks your editor just as surely as killing the editor.
+4. **By ancestry** - its own entire parent chain, so it can never kill the terminal it
+   is running in, the shell above that, or the agent that invoked it.
+
+Kills are also re-validated at kill time: a process is re-checked against its recorded
+start time immediately before being signalled, so a PID recycled between the scan and
+the kill is skipped rather than terminated.
+
+What it does *not* protect you from is written down too, in
+[SECURITY.md](SECURITY.md). A tool whose job is killing processes and deleting files
+owes you a threat model rather than a promise that it is careful.
 
 ## Platform support
 
