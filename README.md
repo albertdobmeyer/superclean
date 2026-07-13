@@ -151,6 +151,22 @@ superclean sweep --dry-run  # or preview a specific tier, then run it
 
 Start at the lightest tier that solves your problem: `sweep` for "too many orphan processes and VRAM is full", `scrub` for "disk is filling up". Reach for `wipe` and `nuke` deliberately.
 
+## Claude Code plugin
+
+The mess superclean collects is mostly made by AI coding agents, so it ships as a Claude Code plugin. The repo is its own marketplace:
+
+```
+/plugin marketplace add albertdobmeyer/superclean
+/plugin install superclean@superclean
+```
+
+That gives you two commands:
+
+- **`/superclean:report`** - diagnose the machine and explain what is eating it, in prose. Read-only. Claude can also reach for this on its own when you say the machine is slow or a port is stuck.
+- **`/superclean:clean [tier]`** - dry-run the tier, show you exactly what it would kill and purge with measured sizes, and act only once you confirm. Deliberately **not** model-invocable: only you can trigger it.
+
+The point of running it from inside Claude Code is that it is safe to. superclean's perimeter protects the session that invokes it, along with every editor, terminal, shell, MCP server, and agent runtime on the box. An agent can clean up its own machine without killing itself, which is exactly what `pkill -f node` cannot promise.
+
 ## Configuration
 
 Three optional files, shared by every platform (`superclean init` copies the commented examples into your per-user config dir). superclean looks for each file via `SUPERCLEAN_CONF_DIR`, then your per-user config dir, then the bundled examples. Lines starting with `#` are comments.

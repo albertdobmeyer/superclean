@@ -1,0 +1,35 @@
+{
+  "name": "superclean",
+  "owner": {
+    "name": "Albert Dobmeyer",
+    "url": "https://github.com/albertdobmeyer"
+  },
+  "description": "superclean: an agentic-dev garbage collector for Claude Code.",
+  "plugins": [
+    {
+      "name": "superclean",
+      "displayName": "superclean",
+      "version": "2.1.1",
+      "description": "Reclaim the RAM, VRAM, and disk that parallel AI coding agents leak, without killing your editors, terminals, or the Claude Code session running the command.",
+      "author": {
+        "name": "Albert Dobmeyer"
+      },
+      "homepage": "https://github.com/albertdobmeyer/superclean#readme",
+      "repository": "https://github.com/albertdobmeyer/superclean",
+      "license": "MIT",
+      "keywords": [
+        "cleanup",
+        "garbage-collector",
+        "ram",
+        "vram",
+        "ollama",
+        "orphaned-processes"
+      ],
+      "source": {
+        "source": "github",
+        "repo": "albertdobmeyer/superclean",
+        "ref": "main"
+      }
+    }
+  ]
+}
