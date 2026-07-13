@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from types import SimpleNamespace
 
 from superclean import cli
@@ -24,6 +26,8 @@ def test_lock_is_exclusive_and_releasable(tmp_path, monkeypatch):
 
 
 def test_stale_lock_is_reclaimed(tmp_path, monkeypatch):
+    # A leftover file from a crashed run carries no OS lock, so it is not an
+    # obstacle: the kernel dropped the lock when that process died.
     monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
     (tmp_path / "superclean.lock").write_text("999999999")  # dead pid
     lock = cli._acquire_lock(_ctx())
@@ -32,8 +36,19 @@ def test_stale_lock_is_reclaimed(tmp_path, monkeypatch):
 
 
 def test_garbage_lock_is_reclaimed(tmp_path, monkeypatch):
+    # File *content* is a breadcrumb, never lock state - garbage cannot wedge us.
     monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
     (tmp_path / "superclean.lock").write_text("not-a-pid")
+    lock = cli._acquire_lock(_ctx())
+    assert lock is not None
+    cli._release_lock(lock)
+
+
+def test_live_pid_in_lockfile_does_not_block_an_unlocked_file(tmp_path, monkeypatch):
+    # The old design read this PID, saw it alive, and refused. Liveness is now the
+    # kernel's business: an unlocked file naming a live PID must not block a run.
+    monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
+    (tmp_path / "superclean.lock").write_text(str(os.getpid()))
     lock = cli._acquire_lock(_ctx())
     assert lock is not None
     cli._release_lock(lock)
@@ -54,39 +69,28 @@ def test_json_fatal_emits_error_envelope(tmp_path, monkeypatch, capsys):
     assert "backend exploded" in data["result"]["error"]
 
 
-def test_release_leaves_foreign_lock_alone(tmp_path, monkeypatch):
+def test_release_never_unlinks_the_lockfile(tmp_path, monkeypatch):
+    # Unlinking a path another process may hold open is what let two runs lock
+    # different inodes under one name. Release drops the OS lock and nothing else.
     monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
     lock = cli._acquire_lock(_ctx())
     assert lock is not None
-    lock.write_text("424242")  # simulates another process's lock
     cli._release_lock(lock)
-    assert lock.exists()  # foreign lock must not be removed
-    lock.unlink()
+    assert lock.path.exists()
 
 
-def test_acquire_backs_off_when_reclamation_race_lost(tmp_path, monkeypatch):
+def test_force_unlock_overrides_a_held_lock(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
-    real_fdopen = os.fdopen
-
-    class _Clobbered:
-        def __init__(self, fh):
-            self._fh = fh
-
-        def __enter__(self):
-            self._fh.__enter__()
-            return self
-
-        def __exit__(self, *exc):
-            return self._fh.__exit__(*exc)
-
-        def write(self, _data):
-            # simulate the other process's content winning on disk
-            self._fh.write("424242")
-
-    monkeypatch.setattr(cli.os, "fdopen", lambda fd, mode: _Clobbered(real_fdopen(fd, mode)))
-    assert cli._acquire_lock(_ctx()) is None
-    # the surviving lock belongs to the "other" process and must still exist
-    assert (tmp_path / "superclean.lock").exists()
+    held = cli._acquire_lock(_ctx())
+    assert held is not None
+    try:
+        assert cli._acquire_lock(_ctx()) is None  # blocked without the override
+        forced = cli._acquire_lock(_ctx(force_unlock=True))
+        assert forced is not None
+        assert forced.held is False  # ran anyway, but does not claim ownership
+        cli._release_lock(forced)
+    finally:
+        cli._release_lock(held)
 
 
 def test_json_lock_busy_emits_error_envelope(tmp_path, monkeypatch, capsys):
@@ -147,18 +151,39 @@ def test_json_fatal_in_readonly_command_emits_envelope(tmp_path, monkeypatch, ca
     assert "report exploded" in data["result"]["error"]
 
 
-def test_reclaim_backs_off_if_lock_changes_before_unlink(tmp_path, monkeypatch):
-    # Narrowing for issue #19: between judging a lock stale and unlinking it,
-    # another process may have reclaimed it. The reclaimer must re-read and
-    # back off instead of deleting the winner's lock.
+_HOLDER = """\
+import os, sys
+from superclean import cli
+fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT, 0o644)
+assert cli._os_try_lock(fd), "child could not take the lock"
+sys.stdout.write("LOCKED\\n")
+sys.stdout.flush()
+sys.stdin.readline()
+"""
+
+
+def test_lock_excludes_a_real_second_process_and_survives_its_crash(tmp_path, monkeypatch):
+    # The regression test for #19. The old lock was arbitrated by reading a PID out
+    # of a file, so two processes could each judge it stale and both end up holding
+    # it. Nothing below can be satisfied by content inspection: a genuinely separate
+    # process takes the kernel lock, and we must be excluded while it lives and free
+    # to proceed once it dies WITHOUT a clean release (SIGKILL, no unlock, no unlink).
     monkeypatch.setattr(cli, "data_dir", lambda: tmp_path)
-    lock = tmp_path / "superclean.lock"
-    lock.write_text("999999999")  # dead pid -> judged stale
+    lockfile = tmp_path / "superclean.lock"
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+    holder = subprocess.Popen(
+        [sys.executable, "-c", _HOLDER, str(lockfile)],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=env,
+    )
+    try:
+        assert holder.stdout.readline().strip() == "LOCKED"
+        assert cli._acquire_lock(_ctx()) is None  # excluded across processes
+    finally:
+        holder.kill()  # crash it: no unlock, no unlink, lockfile left behind
+        holder.wait(timeout=30)
 
-    def pid_exists_with_race(pid):
-        lock.write_text(str(os.getpid()))  # simulate the other process winning NOW
-        return False
-
-    monkeypatch.setattr(cli.psutil, "pid_exists", pid_exists_with_race)
-    assert cli._acquire_lock(_ctx()) is None  # must back off, not steal
-    assert lock.read_text() == str(os.getpid())  # winner's lock untouched
+    assert lockfile.exists()  # the corpse of the lockfile is still on disk...
+    mine = cli._acquire_lock(_ctx())  # ...and must not wedge the next run
+    assert mine is not None
+    assert mine.held is True
+    cli._release_lock(mine)
