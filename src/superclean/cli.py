@@ -18,8 +18,6 @@ import os
 import sys
 import time
 
-import psutil
-
 from superclean import __version__, clean as clean_mod, config, platform_backend, report as report_mod
 from superclean.util import RunContext, data_dir
 
@@ -74,61 +72,127 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--quiet", "-q", action="store_true", help="minimal console output")
     p.add_argument("--json", action="store_true", help="emit a JSON result, suppress human output")
     p.add_argument("--no-color", action="store_true", help="disable ANSI color")
-    p.add_argument("--force-unlock", action="store_true", help="override a stuck lockfile")
+    p.add_argument(
+        "--force-unlock",
+        action="store_true",
+        help="run even while another superclean holds the lock (rarely needed; unsafe)",
+    )
     p.add_argument("--log", help="override the log file path")
     p.add_argument("--version", action="version", version=f"superclean {__version__}")
     return p
 
 
-def _acquire_lock(ctx) -> "object | None":
-    lock = data_dir() / "superclean.lock"
-    for _ in range(2):  # second pass after clearing a stale lock
+# Windows byte-range locks are mandatory: a locked byte cannot be read by anyone
+# else. Lock a sentinel byte well past the PID text so the file stays readable.
+_LOCK_BYTE = 1024
+
+if sys.platform == "win32":
+    import msvcrt
+
+    def _os_try_lock(fd) -> bool:
         try:
-            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        except FileExistsError:
-            try:
-                raw = lock.read_text()
-            except OSError:
-                return None
-            try:
-                existing = int(raw.strip())
-            except ValueError:
-                existing = 0
-            alive = existing > 0 and psutil.pid_exists(existing)
-            if alive and not ctx.force_unlock:
-                return None
-            try:
-                # Narrow the reclaim race (#19): if the lockfile changed since
-                # we judged it stale, another process reclaimed it - back off.
-                if lock.read_text() != raw:
-                    return None
-                lock.unlink()
-            except OSError:
-                return None
-            continue
+            os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            return True
         except OSError:
-            return None
-        with os.fdopen(fd, "w") as fh:
-            fh.write(str(os.getpid()))
-        # Verify ownership: if another process reclaimed the same stale lock
-        # concurrently, its unlink+recreate may have replaced our file. The
-        # loser must back off WITHOUT unlinking the winner's lock.
+            return False
+
+    def _os_unlock(fd) -> None:
         try:
-            if lock.read_text().strip() != str(os.getpid()):
-                return None
+            os.lseek(fd, _LOCK_BYTE, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         except OSError:
-            return None
-        return lock
-    return None
+            pass
+else:
+    import fcntl
+
+    def _os_try_lock(fd) -> bool:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError:
+            return False
+
+    def _os_unlock(fd) -> None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+
+
+_LOCK_GRACE_SECONDS = 1.0
+_LOCK_POLL_SECONDS = 0.01
+
+
+def _try_lock_with_grace(fd) -> bool:
+    """Take the OS lock, tolerating a dead holder's lingering one.
+
+    Windows frees a terminated process's file locks asynchronously, so the lock of a
+    run that just crashed can outlive it by a few milliseconds. Failing on the first
+    attempt would tell whoever re-runs that a run is "in progress" when none is - the
+    phantom stuck lock that --force-unlock existed to work around. Poll briefly; a
+    genuinely live holder still loses nothing but a moment on an error path.
+    """
+    deadline = time.monotonic() + _LOCK_GRACE_SECONDS
+    while True:
+        if _os_try_lock(fd):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_LOCK_POLL_SECONDS)
+
+
+class _Lock:
+    """A held run-lock: the open fd carrying the OS lock, plus its path."""
+
+    __slots__ = ("path", "fd", "held")
+
+    def __init__(self, path, fd, held: bool):
+        self.path = path
+        self.fd = fd
+        self.held = held
+
+
+def _acquire_lock(ctx) -> "_Lock | None":
+    """Single-run mutex, arbitrated by the kernel rather than by PID inspection.
+
+    The OS drops the lock when the fd closes - including on crash or SIGKILL - so
+    a lock can never go stale and nothing has to judge whether some PID is still
+    alive. That judgement, and the unlink-then-recreate dance it required, was the
+    source of the reclaim race in #19; both are gone. The PID is still written to
+    the file, but purely as a human-readable breadcrumb, never as lock state.
+
+    The lockfile is deliberately never unlinked. Removing a path that another
+    process may already hold open would let two runs end up locking different
+    inodes under the same name - reintroducing the very race this replaces.
+    """
+    path = data_dir() / "superclean.lock"
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError:
+        return None
+
+    held = _try_lock_with_grace(fd)
+    if not held and not ctx.force_unlock:
+        os.close(fd)
+        return None
+
+    try:  # breadcrumb for humans reading the file; not consulted by the lock
+        os.ftruncate(fd, 0)
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.write(fd, str(os.getpid()).encode())
+    except OSError:
+        pass
+    return _Lock(path, fd, held)
 
 
 def _release_lock(lock) -> None:
     if lock is None:
         return
+    if lock.held:
+        _os_unlock(lock.fd)
     try:
-        if lock.read_text().strip() != str(os.getpid()):
-            return  # not ours (lost race / clobbered): leave it alone
-        lock.unlink()
+        os.close(lock.fd)
     except OSError:
         pass
 

@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The single-run lock is now arbitrated by the operating system (`fcntl.flock` on
+  POSIX, `msvcrt.locking` on Windows) instead of by reading a PID out of a file and
+  guessing whether that process is still alive. This closes the last stale-lock race
+  (#19): two runs could each judge the same lock stale and both proceed, ending up as
+  concurrent holders. The kernel drops the lock when the process dies - crash, SIGKILL
+  or clean exit alike - so a lock can no longer go stale, and the stale-detection and
+  unlink-then-recreate logic that made the race possible is gone rather than narrowed.
+- The lockfile is never unlinked. Removing a path another process may hold open is how
+  two runs could come to lock different inodes under the same name.
+- A run starting immediately after a crashed one no longer reports a phantom "another
+  superclean run is in progress" on Windows, which frees a dead process's file locks
+  asynchronously. Acquisition now polls for up to one second before giving up.
+
+### Changed
+- `--force-unlock` is now effectively vestigial and its help text says so. A lock can
+  no longer get stuck, so the flag's only remaining effect is to let a second run
+  proceed alongside a live one. It is still accepted, and still does that, but it is
+  no longer a repair tool. Slated for removal in 3.0.
+- `superclean.cli` no longer imports `psutil`; it was there solely for the PID-liveness
+  check that the OS lock replaces.
+
 ## [2.1.0] - 2026-07-07
 
 ### Fixed
